@@ -19,7 +19,12 @@ zero_state_vec(n) = zero_state_vec(ComplexF64, n)
 Creates a state tensor representing `n` qubits in the state |00...0>,
 with dimensions 2x2x...x2. 
 """
-zero_state_tensor(type, n::Integer) = zero_state_vec(type, Tuple(2 for _ in 1:n))
+function zero_state_tensor(type, n::Integer)
+    @assert n >= 1
+    psi = zeros(type, Tuple(2 for _ in 1:n))
+    psi[begin] = 1
+    return psi
+end
 zero_state_tensor(n) = zero_state_tensor(ComplexF64, n)
 
 
