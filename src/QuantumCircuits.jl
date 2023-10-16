@@ -7,6 +7,8 @@ import Base.Iterators: product
 
 ## EXPORTS
 export apply, apply!
+export Localised1SpinGate, Localised2SpinAdjGate
+export CNOTGate, XGate, ZGate, IdentityGate, HadamardGate, Generic1SpinGate, Generic2SpinGate
 
 
 
@@ -41,9 +43,11 @@ mat(::CNOTGate) = _CNOTMat
 struct Generic1SpinGate{T, AT<:AbstractArray{T,2}} <: Abstract1SpinGate
     array::AT
 end
-struct Generic2SpinGate{T, AT<:AbstractArray{T,4}} <: Abstract1SpinGate
+mat(g::Generic1SpinGate) = g.array
+struct Generic2SpinGate{T, AT<:AbstractArray{T,4}} <: Abstract2SpinGate
     array::AT
 end
+mat(g::Generic2SpinGate) = g.array
 
 struct Localised1SpinGate{G<:Abstract1SpinGate, K} <: Abstract1SpinGate
     gate::G
@@ -60,8 +64,14 @@ mat(l::Localised2SpinAdjGate) = mat(l.gate)
 ## FUNCTIONS
 function apply(ψ, gate::AbstractGate)
     ψ′ = similar(ψ)
-    fill!(ψ′, zero(eltype(ψ′)))
     return apply!(ψ′, ψ, gate)
+end
+function apply(ψ, gates::AbstractArray{<:AbstractGate}) 
+    ψ′ = similar(ψ)
+    for g in gates
+        apply!(ψ′, ψ, g)
+    end
+    return ψ′
 end
 
 function apply!(ψ′, ψ, gate::Localised1SpinGate{G, K}) where {G, K}
@@ -75,6 +85,23 @@ function apply!(ψ′, ψ, gate::Localised1SpinGate{G, K}) where {G, K}
         psi = ψ[idxs...]
         for i in 1:2
             ψ′[pre_idxs..., i, post_idxs...] += psi * u[i, contract_idx]
+        end
+    end
+    ψ′
+end
+function apply!(ψ′, ψ, gate::Localised2SpinAdjGate{G, K}) where {G, K}
+    @assert size(ψ′) == size(ψ)
+    ψ′ .= zero(eltype(ψ′))
+    u = mat(gate)
+    for idxs in product((1:2 for _ in 1:ndims(ψ))...)
+        pre_idxs = idxs[1:K-1]
+        post_idxs = idxs[K+2:end]
+        contract_idxs = (idxs[K], idxs[K+1])
+        psi = ψ[idxs...]
+        for i in 1:2
+            for j in 1:2
+                ψ′[pre_idxs..., i, j, post_idxs...] += psi * u[i, j, contract_idxs...]
+            end
         end
     end
     ψ′
