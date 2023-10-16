@@ -57,7 +57,6 @@ struct Localised2SpinAdjGate{G<:Abstract2SpinGate, K} <: Abstract2SpinGate
 end
 mat(l::Localised2SpinAdjGate) = mat(l.gate)
 
-
 ## FUNCTIONS
 function apply(ψ, gate::AbstractGate)
     ψ′ = similar(ψ)
@@ -69,11 +68,11 @@ function apply!(ψ′, ψ, gate::Localised1SpinGate{G, K}) where {G, K}
     @assert size(ψ′) == size(ψ)
     ψ′ .= zero(eltype(ψ′))
     u = mat(gate)
-    for idxs in product((1:2 for _ in ndims(ψ))...)
+    for idxs in product((1:2 for _ in 1:ndims(ψ))...)
         pre_idxs = idxs[1:K-1]
         post_idxs = idxs[K+1:end]
         contract_idx = idxs[K]
-        psi = ψ[idxs]
+        psi = ψ[idxs...]
         for i in 1:2
             ψ′[pre_idxs..., i, post_idxs...] += psi * u[i, contract_idx]
         end
