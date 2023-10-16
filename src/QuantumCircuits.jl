@@ -68,10 +68,16 @@ function apply(ψ, gate::AbstractGate)
 end
 function apply(ψ, gates::AbstractArray{<:AbstractGate}) 
     ψ′ = similar(ψ)
-    for g in gates
+    if length(gates) == 1
         apply!(ψ′, ψ, g)
+        return ψ′
     end
-    return ψ′
+    ψ′′ = copy(ψ)
+    for g in gates
+        apply!(ψ′, ψ′′, g)
+        ψ′′, ψ′ = (ψ′, ψ′′)
+    end
+    return ψ′′
 end
 
 function apply!(ψ′, ψ, gate::Localised1SpinGate{G, K}) where {G, K}
