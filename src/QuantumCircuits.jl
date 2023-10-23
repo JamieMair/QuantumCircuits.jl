@@ -28,6 +28,7 @@ const _IdentityGateMat = SMatrix{2, 2, Float64, 4}([1; 0;;0;1]);
 const _XGateMat = SMatrix{2, 2, Float64, 4}([0; 1;;1; 0]);
 const _ZGateMat = SMatrix{2, 2, Float64, 4}([1; 0;;0; -1]);
 const _IGateMat = SMatrix{2, 2, Float64, 4}([1; 0;;0; 1]);
+# const _CNOTMat = SArray{Tuple{2,2,2,2}}(permutedims(reshape([1;0;0;0;;0;1;0;0;;0;0;0;1;;0;0;1;0], 2,2,2,2), (4,3,2,1)));
 const _CNOTMat = reshape(SMatrix{4,4, Float64, 16}([1;0;0;0;;0;1;0;0;;0;0;0;1;;0;0;1;0]), 2,2,2,2);
 
 struct XGate <: Abstract1SpinGate end
@@ -67,7 +68,9 @@ gatebits(gate::QuantumCircuits.Abstract1SpinGate) = 1
 gatebits(gate::QuantumCircuits.Abstract2SpinGate) = 2
 getval(::Val{X}) where {X} = X
 matrix_only_mat(gate) = QuantumCircuits.mat(gate)
+# matrix_only_mat(gate::QuantumCircuits.Abstract2SpinGate) = reshape(permutedims(QuantumCircuits.mat(gate), (4, 3, 2, 1)), 4, 4)
 matrix_only_mat(gate::QuantumCircuits.Abstract2SpinGate) = reshape(QuantumCircuits.mat(gate), 4, 4)
+
 function convert_gates_to_matrix(nbits, gates)
     gate_dict = Dict{Int, QuantumCircuits.AbstractGate}(
         (getval(g.gate_dim_val)=>g for g in gates)...
@@ -129,7 +132,7 @@ function apply!(ψ′, ψ, gate::Localised1SpinGate{G, K}) where {G, K}
         contract_idx = idxs[K]
         psi = ψ[idxs...]
         for i in 1:2
-            ψ′[pre_idxs..., i, post_idxs...] += psi * u[i, contract_idx]
+            ψ′[pre_idxs..., i, post_idxs...] += psi * u[contract_idx, i]
         end
     end
     ψ′
@@ -141,11 +144,12 @@ function apply!(ψ′, ψ, gate::Localised2SpinAdjGate{G, K}) where {G, K}
     for idxs in product((1:2 for _ in 1:ndims(ψ))...)
         pre_idxs = idxs[1:K-1]
         post_idxs = idxs[K+2:end]
-        contract_idxs = (idxs[K], idxs[K+1])
+        contract_idxs = (idxs[K+1], idxs[K])
         psi = ψ[idxs...]
         for i in 1:2
             for j in 1:2
-                ψ′[pre_idxs..., i, j, post_idxs...] += psi * u[i, j, contract_idxs...]
+                # u is reversed as Julia is column-major unlike row major of numpy
+                ψ′[pre_idxs..., i, j, post_idxs...] += psi * u[contract_idxs..., j, i]
             end
         end
     end
