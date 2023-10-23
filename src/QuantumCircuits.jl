@@ -1,5 +1,6 @@
 module QuantumCircuits
 
+using LoopVectorization
 using StaticArrays
 using LinearAlgebra
 import Base.Iterators: product
@@ -28,7 +29,6 @@ const _IdentityGateMat = SMatrix{2, 2, Float64, 4}([1; 0;;0;1]);
 const _XGateMat = SMatrix{2, 2, Float64, 4}([0; 1;;1; 0]);
 const _ZGateMat = SMatrix{2, 2, Float64, 4}([1; 0;;0; -1]);
 const _IGateMat = SMatrix{2, 2, Float64, 4}([1; 0;;0; 1]);
-# const _CNOTMat = SArray{Tuple{2,2,2,2}}(permutedims(reshape([1;0;0;0;;0;1;0;0;;0;0;0;1;;0;0;1;0], 2,2,2,2), (4,3,2,1)));
 const _CNOTMat = reshape(SMatrix{4,4, Float64, 16}([1;0;0;0;;0;1;0;0;;0;0;0;1;;0;0;1;0]), 2,2,2,2);
 
 struct XGate <: Abstract1SpinGate end
@@ -68,7 +68,6 @@ gatebits(gate::QuantumCircuits.Abstract1SpinGate) = 1
 gatebits(gate::QuantumCircuits.Abstract2SpinGate) = 2
 getval(::Val{X}) where {X} = X
 matrix_only_mat(gate) = QuantumCircuits.mat(gate)
-# matrix_only_mat(gate::QuantumCircuits.Abstract2SpinGate) = reshape(permutedims(QuantumCircuits.mat(gate), (4, 3, 2, 1)), 4, 4)
 matrix_only_mat(gate::QuantumCircuits.Abstract2SpinGate) = reshape(QuantumCircuits.mat(gate), 4, 4)
 
 function convert_gates_to_matrix(nbits, gates)
@@ -123,10 +122,10 @@ function apply(ψ, gates::AbstractArray{<:AbstractGate})
 end
 
 function apply!(ψ′, ψ, gate::Localised1SpinGate{G, K}) where {G, K}
-    @assert size(ψ′) == size(ψ)
+    @boundscheck size(ψ′) == size(ψ)
     ψ′ .= zero(eltype(ψ′))
     u = mat(gate)
-    for idxs in product((1:2 for _ in 1:ndims(ψ))...)
+    @turbo for idxs in product((1:2 for _ in 1:ndims(ψ))...)
         pre_idxs = idxs[1:K-1]
         post_idxs = idxs[K+1:end]
         contract_idx = idxs[K]
@@ -138,10 +137,10 @@ function apply!(ψ′, ψ, gate::Localised1SpinGate{G, K}) where {G, K}
     ψ′
 end
 function apply!(ψ′, ψ, gate::Localised2SpinAdjGate{G, K}) where {G, K}
-    @assert size(ψ′) == size(ψ)
+    @boundscheck size(ψ′) == size(ψ)
     ψ′ .= zero(eltype(ψ′))
     u = mat(gate)
-    for idxs in product((1:2 for _ in 1:ndims(ψ))...)
+    @turbo for idxs in product((1:2 for _ in 1:ndims(ψ))...)
         pre_idxs = idxs[1:K-1]
         post_idxs = idxs[K+2:end]
         contract_idxs = (idxs[K+1], idxs[K])
