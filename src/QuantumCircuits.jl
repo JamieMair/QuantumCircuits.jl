@@ -74,7 +74,7 @@ function convert_gates_to_matrix(nbits, gates)
     gate_dict = Dict{Int, QuantumCircuits.AbstractGate}(
         (getval(g.gate_dim_val)=>g for g in gates)...
     )
-    out_mats = Matrix{Float64}[]
+    out_mats = []
     i = 1
     while i <= nbits
         if haskey(gate_dict, i)
@@ -93,7 +93,7 @@ end
 
 Takes a list of gates to create a Kronecker product matrix that represents the operation.
 """
-function operation_tensor(gates::AbstractVector{<:AbstractMatrix})
+function operation_tensor(gates)
     a = gates[end]
     for i in (length(gates)-1):-1:1
         b = gates[i]
