@@ -1,6 +1,6 @@
 module QuantumCircuits
 
-using LoopVectorization
+using Unroll
 using StaticArrays
 using LinearAlgebra
 import Base.Iterators: product
@@ -24,12 +24,12 @@ function mat(x::AbstractGate)
     error("Unimplemented matrix representation for $(typeof(x))")
 end
 
-const _HadamardGateMat = SMatrix{2, 2, Float64, 4}([1; 1;; 1; -1] ./ sqrt(2));
-const _IdentityGateMat = SMatrix{2, 2, Float64, 4}([1; 0;;0;1]);
-const _XGateMat = SMatrix{2, 2, Float64, 4}([0; 1;;1; 0]);
-const _ZGateMat = SMatrix{2, 2, Float64, 4}([1; 0;;0; -1]);
-const _IGateMat = SMatrix{2, 2, Float64, 4}([1; 0;;0; 1]);
-const _CNOTMat = reshape(SMatrix{4,4, Float64, 16}([1;0;0;0;;0;1;0;0;;0;0;0;1;;0;0;1;0]), 2,2,2,2);
+const _HadamardGateMat = SMatrix{2, 2, Float64, 4}([1; 1;; 1; -1]' ./ sqrt(2));
+const _IdentityGateMat = SMatrix{2, 2, Float64, 4}([1; 0;;0;1]');
+const _XGateMat = SMatrix{2, 2, Float64, 4}([0; 1;;1; 0]');
+const _ZGateMat = SMatrix{2, 2, Float64, 4}([1; 0;;0; -1]');
+const _IGateMat = SMatrix{2, 2, Float64, 4}([1; 0;;0; 1]');
+const _CNOTMat = reshape(SMatrix{4,4, Float64, 16}([1;0;0;0;;0;0;0;1;;0;0;1;0;;0;1;0;0]), 2,2,2,2);
 
 struct XGate <: Abstract1SpinGate end
 mat(::XGate) = _XGateMat
@@ -74,7 +74,7 @@ function convert_gates_to_matrix(nbits, gates)
     gate_dict = Dict{Int, QuantumCircuits.AbstractGate}(
         (getval(g.gate_dim_val)=>g for g in gates)...
     )
-    out_mats = []
+    out_mats = Matrix{Float64}[]
     i = 1
     while i <= nbits
         if haskey(gate_dict, i)
@@ -85,7 +85,7 @@ function convert_gates_to_matrix(nbits, gates)
             i += 1
         end
     end
-    return operation_tensor(out_mats...)
+    return operation_tensor(out_mats)
 end
 
 """
@@ -93,11 +93,11 @@ end
 
 Takes a list of gates to create a Kronecker product matrix that represents the operation.
 """
-function operation_tensor(gates...)
+function operation_tensor(gates::AbstractVector{<:AbstractMatrix})
     a = gates[end]
     for i in (length(gates)-1):-1:1
         b = gates[i]
-        a = kron(b, a)
+        a = kron(a, b)
     end
     return a
 end
@@ -113,6 +113,7 @@ function apply(ψ, gates::AbstractArray{<:AbstractGate})
         apply!(ψ′, ψ, g)
         return ψ′
     end
+    
     ψ′′ = copy(ψ)
     for g in gates
         apply!(ψ′, ψ′′, g)
@@ -125,13 +126,13 @@ function apply!(ψ′, ψ, gate::Localised1SpinGate{G, K}) where {G, K}
     @boundscheck size(ψ′) == size(ψ)
     ψ′ .= zero(eltype(ψ′))
     u = mat(gate)
-    @turbo for idxs in product((1:2 for _ in 1:ndims(ψ))...)
+    @inbounds for idxs in product((1:2 for _ in 1:ndims(ψ))...)
         pre_idxs = idxs[1:K-1]
         post_idxs = idxs[K+1:end]
         contract_idx = idxs[K]
         psi = ψ[idxs...]
-        for i in 1:2
-            ψ′[pre_idxs..., i, post_idxs...] += psi * u[contract_idx, i]
+        @unroll for i in 1:2
+            ψ′[pre_idxs..., i, post_idxs...] += psi * u[i, contract_idx]
         end
     end
     ψ′
@@ -140,15 +141,15 @@ function apply!(ψ′, ψ, gate::Localised2SpinAdjGate{G, K}) where {G, K}
     @boundscheck size(ψ′) == size(ψ)
     ψ′ .= zero(eltype(ψ′))
     u = mat(gate)
-    @turbo for idxs in product((1:2 for _ in 1:ndims(ψ))...)
+    @inbounds for idxs in product((1:2 for _ in 1:ndims(ψ))...)
         pre_idxs = idxs[1:K-1]
         post_idxs = idxs[K+2:end]
-        contract_idxs = (idxs[K+1], idxs[K])
+        contract_idxs = (idxs[K], idxs[K+1])
         psi = ψ[idxs...]
-        for i in 1:2
-            for j in 1:2
+        @unroll for j in 1:2
+            @unroll for i in 1:2
                 # u is reversed as Julia is column-major unlike row major of numpy
-                ψ′[pre_idxs..., i, j, post_idxs...] += psi * u[contract_idxs..., j, i]
+                ψ′[pre_idxs..., i, j, post_idxs...] += psi * u[i, j, contract_idxs...]
             end
         end
     end
