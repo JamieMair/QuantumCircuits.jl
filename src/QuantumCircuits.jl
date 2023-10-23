@@ -95,7 +95,7 @@ function operation_tensor(gates...)
     a = gates[end]
     for i in (length(gates)-1):-1:1
         b = gates[i]
-        a = kron(a, b)
+        a = kron(b, a)
     end
     return a
 end
