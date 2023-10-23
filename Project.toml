@@ -1,7 +1,7 @@
 name = "QuantumCircuits"
 uuid = "52f5b622-0dbc-4b19-b154-18c0dc35fa48"
 authors = ["Jamie Mair <JamieMair@users.noreply.github.com> and contributors"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
