@@ -1,6 +1,3 @@
-using QuantumCircuits
-using Test
+using TestItemRunner
 
-@testset "QuantumCircuits.jl" begin
-    # Write your tests here.
-end
+@run_package_tests
