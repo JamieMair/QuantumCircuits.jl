@@ -1,6 +1,5 @@
 module QuantumCircuits
 
-using Unroll
 using StaticArrays
 using LinearAlgebra
 import Base.Iterators: product
@@ -131,7 +130,7 @@ function apply!(ψ′, ψ, gate::Localised1SpinGate{G, K}) where {G, K}
         post_idxs = idxs[K+1:end]
         contract_idx = idxs[K]
         psi = ψ[idxs...]
-        @unroll for i in 1:2
+        for i in 1:2
             ψ′[pre_idxs..., i, post_idxs...] += psi * u[i, contract_idx]
         end
     end
@@ -146,8 +145,8 @@ function apply!(ψ′, ψ, gate::Localised2SpinAdjGate{G, K}) where {G, K}
         post_idxs = idxs[K+2:end]
         contract_idxs = (idxs[K], idxs[K+1])
         psi = ψ[idxs...]
-        @unroll for j in 1:2
-            @unroll for i in 1:2
+        for j in 1:2
+            for i in 1:2
                 # u is reversed as Julia is column-major unlike row major of numpy
                 ψ′[pre_idxs..., i, j, post_idxs...] += psi * u[i, j, contract_idxs...]
             end

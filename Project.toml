@@ -10,7 +10,6 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 TestItemRunner = "f8b46487-2199-4994-9208-9a1283c18c0a"
 TestItems = "1c621080-faea-4a02-84b6-bbd5e436b8fe"
-Unroll = "36e64239-2ab9-4580-84fb-56737a503d36"
 
 [compat]
 LinearAlgebra = "1.6"
