@@ -42,6 +42,7 @@ function GenericBrickworkCircuit(nbits, nlayers)
     return GenericBrickworkCircuit(nbits, nlayers, ngates, gate_array)
 end
 function QuantumCircuits.apply!(ψ′, ψ, circuit::GenericBrickworkCircuit)
+    # todo - correct this to use two buffers
     gate_idx = 1
     for l in 1:circuit.nlayers
         for j in (1 + (l-1) % 2):(circuit.nbits-1)
@@ -54,6 +55,58 @@ function QuantumCircuits.apply!(ψ′, ψ, circuit::GenericBrickworkCircuit)
     end
     return ψ
 end
+function QuantumCircuits.apply(ψ, circuit::GenericBrickworkCircuit)
+    ψ′ = similar(ψ)
+    ψ′′ = QuantumCircuits.apply!(ψ′, copy(ψ), circuit)
+    return ψ′′
+end
+
+function reconstruct(circuit::GenericBrickworkCircuit, angle, angle_offset)
+    gate_angles = copy(circuit.gate_angles)
+    gate_angles[angle] += angle_offset
+    GenericBrickworkCircuit(circuit.nbits, circuit.nlayers, circuit.ngates, gate_angles)
+end
+function measure(H::AbstractMatrix, ψ::AbstractArray)
+    @assert ndims(H) == 2
+    if ndims(ψ) != 2
+        ψ = reshape(ψ, :, 1) # reshape to column vector
+    end
+    measurement = adjoint(ψ) * (H * ψ)
+    return real(measurement[begin])
+end
+function measure(H::AbstractMatrix, ψ₀::AbstractArray, circuit::GenericBrickworkCircuit)
+    ψ = copy(ψ₀)
+    ψ′ = similar(ψ)
+    ψ′′ = QuantumCircuits.apply!(ψ′, ψ, circuit);
+    
+    return measure(H, ψ′′)
+end
+function gradients(H::AbstractMatrix, ψ₀::AbstractArray, circuit::GenericBrickworkCircuit)
+    gs = map(1:length(circuit.gate_angles)) do i
+        l = reconstruct(circuit, i, π/2)
+        r = reconstruct(circuit, i, -π/2)
+        (measure(H, ψ₀, l)-measure(H, ψ₀, r)) / 2
+    end
+
+    return reshape(gs, size(circuit.gate_angles))
+end
+function optimise!(circuit::GenericBrickworkCircuit, H, ψ₀, epochs, lr)
+    energies = Float64[]
+
+    for i in 1:epochs+1        
+        energy = measure(H, ψ₀, circuit)
+        push!(energies, energy)
+
+        # Gradients
+        grad = gradients(H, ψ₀, circuit)
+
+        circuit.gate_angles .-= lr .* grad
+    end
+
+    return energies
+end
+    
+
 
 
 nbits = 4;
@@ -69,20 +122,9 @@ Random.randn!(circuit.gate_angles);
 circuit.gate_angles .*= 0.01;
 
 ψ₀ = zero_state_tensor(nbits);
-ψ = similar(ψ₀)
-ψ′ = similar(ψ);
 
-begin
-    ψ .= ψ₀;
-    QuantumCircuits.apply!(ψ′, ψ, circuit);
-    nothing
-end
-    
+epochs = 100
+lr = 0.005
+energies = optimise!(circuit, H, ψ₀, epochs, lr)
 
-ψ_vec = reshape(ψ, :, 1);
-@assert norm(ψ_vec) ≈ 1
-@show ψ_vec
-
-measurement = adjoint(ψ_vec) * (H * ψ_vec)
-measurement = real(measurement[begin])
-@show measurement
+ψ = reshape(apply(ψ₀, circuit), :, 1);
