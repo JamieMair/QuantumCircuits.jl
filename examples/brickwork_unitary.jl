@@ -68,9 +68,16 @@ circuit = GenericBrickworkCircuit(nbits, nlayers);
 Random.randn!(circuit.gate_angles);
 circuit.gate_angles .*= 0.01;
 
-ψ = zero_state_tensor(nbits);
+ψ₀ = zero_state_tensor(nbits);
+ψ = similar(ψ₀)
 ψ′ = similar(ψ);
-QuantumCircuits.apply!(ψ′, ψ, circuit);
+
+begin
+    ψ .= ψ₀;
+    QuantumCircuits.apply!(ψ′, ψ, circuit);
+    nothing
+end
+    
 
 ψ_vec = reshape(ψ, :, 1);
 @assert norm(ψ_vec) ≈ 1
