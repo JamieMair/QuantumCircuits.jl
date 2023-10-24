@@ -128,3 +128,4 @@ lr = 0.005
 energies = optimise!(circuit, H, ψ₀, epochs, lr)
 
 ψ = reshape(apply(ψ₀, circuit), :, 1);
+# TODO: Add plots
