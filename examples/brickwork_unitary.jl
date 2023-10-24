@@ -2,6 +2,7 @@ using Revise
 using QuantumCircuits
 using Random
 using LinearAlgebra
+using ProgressBars
 
 
 function build_hamiltonian(n, J, h, g=0)
@@ -90,32 +91,33 @@ function gradients(H::AbstractMatrix, ψ₀::AbstractArray, circuit::GenericBric
 
     return reshape(gs, size(circuit.gate_angles))
 end
-function optimise!(circuit::GenericBrickworkCircuit, H, ψ₀, epochs, lr)
+function optimise!(circuit::GenericBrickworkCircuit, H, ψ₀, epochs, lr; use_progress=true)
     energies = Float64[]
 
-    for i in 1:epochs+1        
+    iter = 1:(epochs+1)
+    iter = use_progress ? ProgressBar(iter) : iter
+
+    for i in iter 
         energy = measure(H, ψ₀, circuit)
         push!(energies, energy)
 
-        # Gradients
-        grad = gradients(H, ψ₀, circuit)
+        if i <= epochs
+            # Gradients
+            grad = gradients(H, ψ₀, circuit)
 
-        circuit.gate_angles .-= lr .* grad
+            circuit.gate_angles .-= lr .* grad
+        end
     end
 
     return energies
 end
     
-
-
-
 nbits = 4;
 nlayers = 3;
 J = 1;
 h = 0.5;
 g = 0;
 H = build_hamiltonian(nbits, J, h, g);
-@show H
 
 circuit = GenericBrickworkCircuit(nbits, nlayers);
 Random.randn!(circuit.gate_angles);
@@ -124,8 +126,23 @@ circuit.gate_angles .*= 0.01;
 ψ₀ = zero_state_tensor(nbits);
 
 epochs = 100
-lr = 0.005
-energies = optimise!(circuit, H, ψ₀, epochs, lr)
+lr = 0.01
+energies = optimise!(circuit, H, ψ₀, epochs, lr);
 
 ψ = reshape(apply(ψ₀, circuit), :, 1);
-# TODO: Add plots
+ψ = sqrt.(real.(ψ .* conj.(ψ)))
+
+eigen_decomp = eigen(H);
+min_energy = minimum(eigen_decomp.values);
+ground_state = eigen_decomp.vectors[:, findfirst(x->x==min_energy, eigen_decomp.values)]
+
+using Plots
+using LaTeXStrings
+begin
+    plt = plot(0:(length(energies)-1), energies, label=L"\langle H \ \rangle", lw=2, color=:black)
+    hline!(plt, [min_energy], label=L"E_0", linestyle=:dash, lw=2)
+    xlabel!(plt, "Epochs")
+    ylabel!(plt, "TFIM Energy")
+    xlims!(plt, (0, epochs))
+    plt
+end
