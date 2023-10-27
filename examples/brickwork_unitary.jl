@@ -113,7 +113,7 @@ function optimise!(circuit::GenericBrickworkCircuit, H, ψ₀, epochs, lr; use_p
 end
     
 nbits = 4;
-nlayers = 3;
+nlayers = 6;
 J = 1;
 h = 0.5;
 g = 0;
