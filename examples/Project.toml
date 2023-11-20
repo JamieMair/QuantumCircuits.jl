@@ -1,5 +1,6 @@
 [deps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
-Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 ProgressBars = "49802e3a-d2f1-5c88-81d8-b72133a6f568"
 QuantumCircuits = "52f5b622-0dbc-4b19-b154-18c0dc35fa48"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"

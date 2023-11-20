@@ -1,7 +1,7 @@
 using Revise
-includet("test_brickwork_problem.jl")
+include("test_brickwork_problem.jl")
 
-    
+
 nbits = 4;
 nlayers = 6;
 J = 1;
@@ -26,13 +26,18 @@ eigen_decomp = eigen(H);
 min_energy = minimum(eigen_decomp.values);
 ground_state = eigen_decomp.vectors[:, findfirst(x->x==min_energy, eigen_decomp.values)]
 
-using Plots
+using CairoMakie
 using LaTeXStrings
 begin
-    plt = plot(0:(length(energies)-1), energies, label=L"\langle H \ \rangle", lw=2, color=:black)
-    hline!(plt, [min_energy], label=L"E_0", linestyle=:dash, lw=2)
-    xlabel!(plt, "Epochs")
-    ylabel!(plt, "TFIM Energy")
-    xlims!(plt, (0, epochs))
-    plt
+    f = Figure()
+    ax = Axis(f[1,1],
+        title="Grad. Descent on TFIM with $(nlayers) layers and $(nbits) sites.",
+        xlabel="# Epochs",
+        ylabel="<E>")
+
+    
+    lines!(ax, 0:(length(energies)-1), energies, label=L"\langle H \ \rangle", color=:black)
+    hlines!(ax, [min_energy], label=L"E_0", linestyle=:dash)
+    xlims!(ax, (0, epochs))
+    f
 end

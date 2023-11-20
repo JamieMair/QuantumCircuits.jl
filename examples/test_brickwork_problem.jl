@@ -81,6 +81,11 @@ function measure(H::AbstractMatrix, ψ₀::AbstractArray, circuit::GenericBrickw
     
     return measure(H, ψ′′)
 end
+function gradient(H::AbstractMatrix, ψ₀::AbstractArray, circuit::GenericBrickworkCircuit, gate_index)
+    l = reconstruct(circuit, gate_index, π/2);
+    r = reconstruct(circuit, gate_index, -π/2);
+    (measure(H, ψ₀, l)-measure(H, ψ₀, r)) / 2
+end
 function gradients(H::AbstractMatrix, ψ₀::AbstractArray, circuit::GenericBrickworkCircuit)
     gs = map(1:length(circuit.gate_angles)) do i
         l = reconstruct(circuit, i, π/2)
