@@ -4,8 +4,11 @@ struct GenericBrickworkCircuit{T<:Real}
     ngates::Int
     gate_angles::Matrix{T}
 end
+function brickwork_num_gates(nbits, nlayers)
+    return sum(n->length((1 + (n-1) % 2):(nbits-1)), 1:nlayers)
+end
 function GenericBrickworkCircuit(nbits, nlayers)
-    ngates = sum(n->length((1 + (n-1) % 2):(nbits-1)), 1:nlayers)
+    ngates = brickwork_num_gates(nbits, nlayers)
 
     gate_array = zeros(Float64, 15, ngates);
     return GenericBrickworkCircuit(nbits, nlayers, ngates, gate_array)
