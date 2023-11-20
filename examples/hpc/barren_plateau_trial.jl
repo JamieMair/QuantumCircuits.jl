@@ -18,7 +18,7 @@ function run_trial(config::Dict{Symbol, Any}, trial_id)
     h = config[:h]
     g = config[:g]
 
-    seed = Random.rand(Int)
+    seed = Int(Random.rand(UInt16))
     results[:seed] = seed
     Random.seed!(seed)
 
