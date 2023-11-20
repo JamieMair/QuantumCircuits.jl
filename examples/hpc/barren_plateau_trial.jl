@@ -18,10 +18,13 @@ function run_trial(config::Dict{Symbol, Any}, trial_id)
     h = config[:h]
     g = config[:g]
 
-    seed = config[:seed]
+    seed = Random.rand(Int)
+    results[:seed] = seed
     Random.seed!(seed)
+
     H = build_hamiltonian(nbits, J, h, g);
     ψ₀ = zero_state_tensor(nbits);
+    
     results[:gradients] = map(1:nrepeats) do _
         return gate_gradient(nbits, nlayers, H, ψ₀, gate_index)
     end
