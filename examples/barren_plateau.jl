@@ -85,38 +85,13 @@ using Experimenter
 import Serialization
 using DataFrames
 using SQLite
-db_path = joinpath(@__DIR__, "hpc/results/barren_plateau_experiments.db");
+db_path = joinpath(@__DIR__, "hpc/results/hpc_experiments.db");
 file_name = splitpath(db_path)[end];
 db = open_db(file_name, dirname(db_path));
-function _deserialize_columns(df::DataFrame)
-    for colname in names(df)
-        col = df[!, colname]
-        if eltype(col) <: Vector{UInt8} # raw binary
-            df[!, colname] = map(col) do c
-                io = IOBuffer(c)
-                return (Serialization.deserialize(io)).object
-            end
-        elseif eltype(col) <: SQLite.Serialized
-            df[!, colname] = map(x->x.object, col)
-        end
-    end
-    return df
-end
-function custom_get_trials(db::ExperimentDatabase, name)
-    sql = raw"""
-    SELECT name, Trials.id as id, experiment_id, Trials.configuration as configuration, results, trial_index, has_finished 
-    FROM Trials 
-    INNER JOIN Experiments ON Experiments.id == Trials.experiment_id 
-    WHERE name = ? 
-    ORDER BY trial_index
-    """
-    df = _deserialize_columns(SQLite.DBInterface.execute(db._db, sql, (name,)) |> DataFrame)
-    return [Trial(row) for row in eachrow(df)]
-end
-trials = custom_get_trials(db, "Barren Plateau Vanilla");
+trials = get_trials_by_name(db, "Barren Plateau Vanilla");
 
-nbits = sort([Set([t.configuration[:nbits] for t in trials])...])
-nlayers = sort([Set([t.configuration[:nlayers] for t in trials])...])
+nbits = sort([Set([t.configuration[:nbits] for t in trials])...]);
+nlayers = sort([Set([t.configuration[:nlayers] for t in trials])...]);
 
 hamiltonian_params = begin
     J = sort([Set([t.configuration[:J] for t in trials])...])
@@ -130,19 +105,19 @@ hamiltonian_params = begin
     h=h[begin],
     g=g[begin])
     return hamiltonian_params
-end
+end;
 
 begin
     gate_index = sort([Set([t.configuration[:gate_index] for t in trials])...])
     @assert length(gate_index) == 1
     gate_index = gate_index[begin]
-end
+end;
 
 begin
     nrepeats = sort([Set([t.configuration[:nrepeats] for t in trials])...])
     @assert length(nrepeats) == 1
     nrepeats = nrepeats[begin]
-end
+end;
 
 results = begin
     results = zeros(Float64, (nrepeats, length(nbits), length(nlayers)))
