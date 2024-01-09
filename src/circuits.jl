@@ -1,3 +1,5 @@
+using ProgressBars
+
 struct GenericBrickworkCircuit{T<:Real}
     nbits::Int
     nlayers::Int
