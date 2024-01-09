@@ -27,6 +27,7 @@ end
 energy_trajectories = [test_optimise(circuit, H, epochs, lr) for _ in 1:nrepeats];
 
 
+ψ₀ = zero_state_tensor(nbits);
 ψ = reshape(apply(ψ₀, circuit), :, 1);
 ψ = sqrt.(real.(ψ .* conj.(ψ)))
 
@@ -42,9 +43,9 @@ begin
         title="Grad. Descent on TFIM with $(nlayers) layers and $(nbits) sites.",
         xlabel="# Epochs",
         ylabel="<E>")
-
-    
-    lines!(ax, 0:(length(energies)-1), energies, label=L"\langle H \ \rangle", color=:black)
+    for energies in energy_trajectories
+        lines!(ax, 0:(length(energies)-1), energies, label=L"\langle H \ \rangle", color=:black, alpha = 0.7)
+    end
     hlines!(ax, [min_energy], label=L"E_0", linestyle=:dash)
     xlims!(ax, (0, epochs))
     f
