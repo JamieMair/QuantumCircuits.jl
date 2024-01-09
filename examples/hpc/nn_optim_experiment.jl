@@ -1,13 +1,15 @@
 using Distributed
 using ClusterManagers
+
+
 num_tasks = parse(Int, ENV["SLURM_NTASKS"]) # One process per task
 cpus_per_task = parse(Int, ENV["SLURM_CPUS_PER_TASK"]) # Assign threads per process
-addprocs(SlurmManager(num_tasks,
- exe_flags=[
+addprocs(ClusterManagers.SlurmManager(num_tasks),
+    exeflags=[
     "--project",
     "--threads=$cpus_per_task"]
     )
-)
+
 
 
 using Experimenter
