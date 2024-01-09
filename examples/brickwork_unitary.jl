@@ -10,14 +10,22 @@ g = 0;
 H = build_hamiltonian(nbits, J, h, g);
 
 circuit = GenericBrickworkCircuit(nbits, nlayers);
+nrepeats = 3
+    
+epochs = 80
+lr = 0.01
+
+function test_optimise(circuit, H, epochs, lr)
 Random.randn!(circuit.gate_angles);
 circuit.gate_angles .*= 0.01;
 
 ψ₀ = zero_state_tensor(nbits);
-
-epochs = 100
-lr = 0.01
 energies = optimise!(circuit, H, ψ₀, epochs, lr);
+    return energies
+end
+
+energy_trajectories = [test_optimise(circuit, H, epochs, lr) for _ in 1:nrepeats];
+
 
 ψ = reshape(apply(ψ₀, circuit), :, 1);
 ψ = sqrt.(real.(ψ .* conj.(ψ)))
