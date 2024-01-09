@@ -4,8 +4,6 @@ using Flux
 using ProgressBars
 using CUDA
 
-include("../test_brickwork_problem.jl")
-
 struct HamiltonianLayer{T,A<:AbstractArray}
     nbits::Int
     nlayers::Int
@@ -71,30 +69,7 @@ function HamiltonianLayer(nbits::Int, nlayers::Int, ngates::Int, ψ₀::CuArray,
     return HamiltonianLayer(nbits, nlayers, ngates, Array(ψ₀), H)
 end
 
-function test_network(;use_gpu = true)
-    nbits = 10
-    nlayers = 10
-    ngates = QuantumCircuits.brickwork_num_gates(nbits, nlayers)
-    nangles = ngates * 15
-    ψ₀ = QuantumCircuits.zero_state_tensor(nbits)
-    J = 1;
-    h = 0.5;
-    g = 0;
-    H = build_hamiltonian(nbits, J, h, g);
-    model = Chain(
-        Dense(1=>50, tanh),
-        Dense(50=>50, tanh),
-        Dense(50=>nangles, Flux.σ),
-        x -> x .* (2π),
-        x -> reshape(x, 15, ngates),
-        HamiltonianLayer(nbits, nlayers, ngates, ψ₀, H),
-        E -> sum(E)
-    )
-    use_gpu && return model |> Flux.gpu
-    return model
-end
-
-function train!(network, epochs; lr=0.005, use_gpu = true)
+function train!(network, epochs; lr=0.01, use_gpu = true)
     input = use_gpu ? [1.0f0] |> Flux.gpu : [1.0f0];
     
     losses = Float32[];
@@ -110,28 +85,20 @@ function train!(network, epochs; lr=0.005, use_gpu = true)
 end
 
 
-network = test_network();
-epochs = 100
-losses = train!(network, epochs);
 
-H = network.layers[end-1].H
-eigen_decomp = eigen(H);
-min_energy = minimum(eigen_decomp.values);
-ground_state = eigen_decomp.vectors[:, findfirst(x->x==min_energy, eigen_decomp.values)]
-
-using CairoMakie
-using LaTeXStrings
-begin
-    f = Figure()
-    ax = Axis(f[1,1],
-        title="Gradient Descent with a neural network",
-        xlabel="# Epochs",
-        ylabel=L"\left \langle H \right \rangle")
+# using CairoMakie
+# using LaTeXStrings
+# begin
+#     f = Figure()
+#     ax = Axis(f[1,1],
+#         title="Gradient Descent with a neural network",
+#         xlabel="# Epochs",
+#         ylabel=L"\left \langle H \right \rangle")
 
     
-    lines!(ax, 0:(length(losses)-1), losses, label=L"\langle H \ \rangle", color=:black)
-    hlines!(ax, [min_energy], label=L"E_0", linestyle=:dash)
-    xlims!(ax, (0, epochs))
+#     lines!(ax, 0:(length(losses)-1), losses, label=L"\langle H \ \rangle", color=:black)
+#     hlines!(ax, [min_energy], label=L"E_0", linestyle=:dash)
+#     xlims!(ax, (0, epochs))
 
-    f
-end
+#     f
+# end
