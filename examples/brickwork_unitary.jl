@@ -11,16 +11,16 @@ H = build_hamiltonian(nbits, J, h, g);
 
 circuit = GenericBrickworkCircuit(nbits, nlayers);
 nrepeats = 3
-    
+
 epochs = 80
 lr = 0.01
 
 function test_optimise(circuit, H, epochs, lr)
-Random.randn!(circuit.gate_angles);
-circuit.gate_angles .*= 0.01;
+    Random.randn!(circuit.gate_angles)
+    circuit.gate_angles .*= 0.01
 
-ψ₀ = zero_state_tensor(nbits);
-energies = optimise!(circuit, H, ψ₀, epochs, lr);
+    ψ₀ = zero_state_tensor(nbits)
+    energies = optimise!(circuit, H, ψ₀, epochs, lr)
     return energies
 end
 
@@ -33,18 +33,18 @@ energy_trajectories = [test_optimise(circuit, H, epochs, lr) for _ in 1:nrepeats
 
 eigen_decomp = eigen(H);
 min_energy = minimum(eigen_decomp.values);
-ground_state = eigen_decomp.vectors[:, findfirst(x->x==min_energy, eigen_decomp.values)]
+ground_state = eigen_decomp.vectors[:, findfirst(x -> x == min_energy, eigen_decomp.values)]
 
 using CairoMakie
 using LaTeXStrings
 begin
     f = Figure()
-    ax = Axis(f[1,1],
+    ax = Axis(f[1, 1],
         title="Grad. Descent on TFIM with $(nlayers) layers and $(nbits) sites.",
         xlabel="# Epochs",
         ylabel="<E>")
     for energies in energy_trajectories
-        lines!(ax, 0:(length(energies)-1), energies, label=L"\langle H \ \rangle", color=:black, alpha = 0.7)
+        lines!(ax, 0:(length(energies)-1), energies, label=L"\langle H \ \rangle", color=:black, alpha=0.7)
     end
     hlines!(ax, [min_energy], label=L"E_0", linestyle=:dash)
     xlims!(ax, (0, epochs))
