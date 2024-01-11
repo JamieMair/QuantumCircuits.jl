@@ -1,17 +1,3 @@
-using Distributed
-using ClusterManagers
-
-
-num_tasks = parse(Int, ENV["SLURM_NTASKS"]) # One process per task
-cpus_per_task = parse(Int, ENV["SLURM_CPUS_PER_TASK"]) # Assign threads per process
-addprocs(ClusterManagers.SlurmManager(num_tasks),
-    exeflags=[
-    "--project",
-    "--threads=$cpus_per_task"]
-    )
-
-
-
 using Experimenter
 cd(joinpath(@__DIR__, ".."))
 
@@ -43,5 +29,7 @@ experiment = Experiment(
     function_name="run_trial",
     configuration = deepcopy(config)
 )
+
+Experimenter.Cluster.init()
 
 @execute experiment db DistributedMode
