@@ -69,12 +69,13 @@ function HamiltonianLayer(nbits::Int, nlayers::Int, ngates::Int, ψ₀::CuArray,
     return HamiltonianLayer(nbits, nlayers, ngates, Array(ψ₀), H)
 end
 
-function train!(network, epochs; lr=0.01, use_gpu = true)
+function train!(network, epochs; lr=0.01, use_gpu = true, use_progress=false)
     input = use_gpu ? [1.0f0] |> Flux.gpu : [1.0f0];
     
     losses = Float32[];
     optim = Flux.setup(Flux.Adam(lr), network);
-    for e in ProgressBar(1:epochs)
+    iter = use_progress ? ProgressBar(1:epochs) : (1:epochs)
+    for e in iter
         energy, grads = Flux.withgradient(network) do m
             m(input)
         end
