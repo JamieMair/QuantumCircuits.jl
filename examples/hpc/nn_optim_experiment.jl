@@ -21,7 +21,7 @@ config = Dict{Symbol,Any}(
 )
 
 experiment = Experiment(
-    name="Test NN optim",
+    name="NN Optimisation 1",
     include_file="hpc/nn_optim_trial.jl",
     function_name="run_trial",
     configuration=deepcopy(config)
