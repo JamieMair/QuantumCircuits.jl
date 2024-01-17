@@ -64,15 +64,19 @@ function plot_all_energy_trajectories(df)
 
             plot_trajectories!(ax, trajectories; alpha=0.1, label=nothing, color=c)
             
-            lines!(ax, epochs, mean_trajectory; label="$nlayers", color=c, lw=3)            
+            lines!(ax, epochs, mean_trajectory; label="$nlayers", color=c, lw=3)      
+            xlims!(ax, 0, maximum(epochs))
         end
 
         hlines!(ax, ges, label=L"E_0", linestyle=:dash, alpha=0.5, color=:black)
+
     end
 
     new_colour_scheme = ColorScheme(map(LinRange(min_layers, max_layers, 256)) do nl
         color_scheme[convert_col_to_idx(nl)]
     end)
+
+    
 
     cbar = Colorbar(f[length(nbits_set)+1, 1], limits=(min_layers, max_layers), ticks=nlayers_set, colormap=new_colour_scheme, vertical=false, label="Layers")
 
