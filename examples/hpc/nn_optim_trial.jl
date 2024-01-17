@@ -69,7 +69,7 @@ function run_trial(config::Dict{Symbol, Any}, trial_id)
     )
     network = use_gpu ? (network |> Flux.gpu) : network
 
-    losses = train!(network, epochs);
+    losses = train!(network, epochs; use_gpu, lr=0.01);
 
     results[:energy_trajectory] = losses
 
