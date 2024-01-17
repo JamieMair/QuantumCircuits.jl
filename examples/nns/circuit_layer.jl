@@ -84,22 +84,3 @@ function train!(network, epochs; lr=0.01, use_gpu = true, use_progress=false)
     end
     return losses
 end
-
-
-
-# using CairoMakie
-# using LaTeXStrings
-# begin
-#     f = Figure()
-#     ax = Axis(f[1,1],
-#         title="Gradient Descent with a neural network",
-#         xlabel="# Epochs",
-#         ylabel=L"\left \langle H \right \rangle")
-
-    
-#     lines!(ax, 0:(length(losses)-1), losses, label=L"\langle H \ \rangle", color=:black)
-#     hlines!(ax, [min_energy], label=L"E_0", linestyle=:dash)
-#     xlims!(ax, (0, epochs))
-
-#     f
-# end
