@@ -12,21 +12,13 @@ config = Dict{Symbol,Any}(
     :h => 0.5,
     :g => 0.0,
     :learning_rate => IterableVariable([0.0001]),
-    :use_gpu => true,
-    :architecture => IterableVariable([[
-        (; neurons=50, activation=:tanh),
-        (; neurons = 50, activation = :tanh),
-        (; neurons=50, activation=:tanh)
-    ],[
-        (; neurons=250, activation=:tanh),
-        (; neurons = 250, activation = :tanh),
-        (; neurons=250, activation=:tanh)
-    ]]),
+    :use_gpu => false,
+    :architecture => [],
     :epochs => 150,
 )
 
 experiment = Experiment(
-    name="NN Optimisation Low LR",
+    name="Gradient Optimisation Low LR",
     include_file="hpc/nn_optim_trial.jl",
     function_name="run_trial",
     configuration=deepcopy(config)

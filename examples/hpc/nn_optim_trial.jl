@@ -4,20 +4,22 @@ include("../test_brickwork_problem.jl")
 include("../nns/circuit_layer.jl")
 
 function git_sha()
-    out=IOBuffer()
+    out = IOBuffer()
     run(pipeline(`git rev-parse HEAD`, stdout=out))
     hash = strip(String(take!(out)))
     return hash
 end
 
-function run_trial(config::Dict{Symbol, Any}, trial_id) 
-    results = Dict{Symbol, Any}()
+function run_trial(config::Dict{Symbol,Any}, trial_id)
+    results = Dict{Symbol,Any}()
     nbits = config[:nbits]
     nlayers = config[:nlayers]
     J = config[:J]
     h = config[:h]
     g = config[:g]
+    lr = config[:learning_rate]
     epochs = config[:epochs]
+
     use_gpu = haskey(config, :use_gpu) ? config[:use_gpu] : CUDA.has_cuda_gpu()
     layer_info = config[:architecture] # list of (; neuron, activation) named tuples
 
@@ -32,7 +34,7 @@ function run_trial(config::Dict{Symbol, Any}, trial_id)
     results[:nangles] = nangles
 
     ψ₀ = QuantumCircuits.zero_state_tensor(nbits)
-    H = build_hamiltonian(nbits, J, h, g);
+    H = build_hamiltonian(nbits, J, h, g)
 
     initial_layers = []
     last_size = 1
@@ -54,22 +56,36 @@ function run_trial(config::Dict{Symbol, Any}, trial_id)
             layer_info[i-1].neurons
         end
 
-        return Dense(last_size=>neurons, activation)
+        use_bias = haskey(info, :bias) ? info.bias : true
+
+        return Dense(last_size => neurons, activation; bias=use_bias)
     end
 
-    last_layer_size = layer_info[end].neurons
 
-    network = Chain(
-        initial_layers...,
-        Dense(last_layer_size=>nangles, Flux.σ),
-        x -> x .* (2π),
-        x -> reshape(x, 15, ngates),
-        HamiltonianLayer(nbits, nlayers, ngates, ψ₀, H),
-        E -> sum(E)
-    )
+    network = if length(layer_info) == 0
+        network = Chain(
+            Dense(1 => nangles, identity; bias=false),
+            x -> x .* (2π),
+            x -> reshape(x, 15, ngates),
+            HamiltonianLayer(nbits, nlayers, ngates, ψ₀, H),
+            E -> sum(E)
+        )
+        network
+    else
+        last_layer_size = layer_info[end].neurons
+        network = Chain(
+            initial_layers...,
+            Dense(last_layer_size => nangles, Flux.σ),
+            x -> x .* (2π),
+            x -> reshape(x, 15, ngates),
+            HamiltonianLayer(nbits, nlayers, ngates, ψ₀, H),
+            E -> sum(E))
+        network
+    end
+
     network = use_gpu ? (network |> Flux.gpu) : network
 
-    losses = train!(network, epochs; use_gpu, lr=0.01);
+    losses = train!(network, epochs; use_gpu, lr=lr)
 
     results[:energy_trajectory] = losses
 
@@ -79,9 +95,9 @@ function run_trial(config::Dict{Symbol, Any}, trial_id)
     results[:git_sha] = git_sha()
 
     H = network.layers[end-1].H
-    eigen_decomp = eigen(H);
-    min_energy = minimum(eigen_decomp.values);
-    ground_state = eigen_decomp.vectors[:, findfirst(x->x==min_energy, eigen_decomp.values)]
+    eigen_decomp = eigen(H)
+    min_energy = minimum(eigen_decomp.values)
+    ground_state = eigen_decomp.vectors[:, findfirst(x -> x == min_energy, eigen_decomp.values)]
 
     results[:ground_energy] = min_energy
     results[:ground_state] = ground_state
