@@ -1,117 +1,7 @@
 using Revise
-using QuantumCircuits
-using Random
-using LinearAlgebra
-using ProgressBars
+include("test_brickwork_problem.jl")
 
 
-function build_hamiltonian(n, J, h, g=0)
-    H = zeros(2^n, 2^n)
-    for i in 1:n-1
-        a = Localised1SpinGate(XGate(), Val(i))
-        b = Localised1SpinGate(XGate(), Val(i+1))
-        H .+= convert_gates_to_matrix(n, Localised1SpinGate[a,b])
-    end
-    H .*= -J
-
-    for i in 1:n
-        a = Localised1SpinGate(ZGate(), Val(i))
-        H .+= h .* convert_gates_to_matrix(n, Localised1SpinGate[a])
-    end
-    
-    if g != 0
-        for i in 1:n
-            a = Localised1SpinGate(XGate(), Val(i))
-            H .+= g .* convert_gates_to_matrix(n, Localised1SpinGate[a])
-        end
-    end
-
-    return H
-end
-
-
-struct GenericBrickworkCircuit{T<:Real}
-    nbits::Int
-    nlayers::Int
-    ngates::Int
-    gate_angles::Matrix{T}
-end
-function GenericBrickworkCircuit(nbits, nlayers)
-    ngates = sum(n->length((1 + (n-1) % 2):(nbits-1)), 1:nlayers)
-
-    gate_array = zeros(Float64, 15, ngates);
-    return GenericBrickworkCircuit(nbits, nlayers, ngates, gate_array)
-end
-function QuantumCircuits.apply!(ψ′, ψ, circuit::GenericBrickworkCircuit)
-    # todo - correct this to use two buffers
-    gate_idx = 1
-    for l in 1:circuit.nlayers
-        for j in (1 + (l-1) % 2):(circuit.nbits-1)
-            angles = view(circuit.gate_angles, :, gate_idx)
-            gate = Localised2SpinAdjGate(build_general_unitary_gate(angles), Val(j))
-            apply!(ψ′, ψ, gate)
-            (ψ′, ψ) = (ψ, ψ′)
-            gate_idx += 1
-        end
-    end
-    return ψ
-end
-function QuantumCircuits.apply(ψ, circuit::GenericBrickworkCircuit)
-    ψ′ = similar(ψ)
-    ψ′′ = QuantumCircuits.apply!(ψ′, copy(ψ), circuit)
-    return ψ′′
-end
-
-function reconstruct(circuit::GenericBrickworkCircuit, angle, angle_offset)
-    gate_angles = copy(circuit.gate_angles)
-    gate_angles[angle] += angle_offset
-    GenericBrickworkCircuit(circuit.nbits, circuit.nlayers, circuit.ngates, gate_angles)
-end
-function measure(H::AbstractMatrix, ψ::AbstractArray)
-    @assert ndims(H) == 2
-    if ndims(ψ) != 2
-        ψ = reshape(ψ, :, 1) # reshape to column vector
-    end
-    measurement = adjoint(ψ) * (H * ψ)
-    return real(measurement[begin])
-end
-function measure(H::AbstractMatrix, ψ₀::AbstractArray, circuit::GenericBrickworkCircuit)
-    ψ = copy(ψ₀)
-    ψ′ = similar(ψ)
-    ψ′′ = QuantumCircuits.apply!(ψ′, ψ, circuit);
-    
-    return measure(H, ψ′′)
-end
-function gradients(H::AbstractMatrix, ψ₀::AbstractArray, circuit::GenericBrickworkCircuit)
-    gs = map(1:length(circuit.gate_angles)) do i
-        l = reconstruct(circuit, i, π/2)
-        r = reconstruct(circuit, i, -π/2)
-        (measure(H, ψ₀, l)-measure(H, ψ₀, r)) / 2
-    end
-
-    return reshape(gs, size(circuit.gate_angles))
-end
-function optimise!(circuit::GenericBrickworkCircuit, H, ψ₀, epochs, lr; use_progress=true)
-    energies = Float64[]
-
-    iter = 1:(epochs+1)
-    iter = use_progress ? ProgressBar(iter) : iter
-
-    for i in iter 
-        energy = measure(H, ψ₀, circuit)
-        push!(energies, energy)
-
-        if i <= epochs
-            # Gradients
-            grad = gradients(H, ψ₀, circuit)
-
-            circuit.gate_angles .-= lr .* grad
-        end
-    end
-
-    return energies
-end
-    
 nbits = 4;
 nlayers = 6;
 J = 1;
@@ -120,29 +10,43 @@ g = 0;
 H = build_hamiltonian(nbits, J, h, g);
 
 circuit = GenericBrickworkCircuit(nbits, nlayers);
-Random.randn!(circuit.gate_angles);
-circuit.gate_angles .*= 0.01;
+nrepeats = 3
+
+epochs = 80
+lr = 0.01
+
+function test_optimise(circuit, H, epochs, lr)
+    Random.randn!(circuit.gate_angles)
+    circuit.gate_angles .*= 0.01
+
+    ψ₀ = zero_state_tensor(nbits)
+    energies = optimise!(circuit, H, ψ₀, epochs, lr)
+    return energies
+end
+
+energy_trajectories = [test_optimise(circuit, H, epochs, lr) for _ in 1:nrepeats];
+
 
 ψ₀ = zero_state_tensor(nbits);
-
-epochs = 100
-lr = 0.01
-energies = optimise!(circuit, H, ψ₀, epochs, lr);
-
 ψ = reshape(apply(ψ₀, circuit), :, 1);
 ψ = sqrt.(real.(ψ .* conj.(ψ)))
 
 eigen_decomp = eigen(H);
 min_energy = minimum(eigen_decomp.values);
-ground_state = eigen_decomp.vectors[:, findfirst(x->x==min_energy, eigen_decomp.values)]
+ground_state = eigen_decomp.vectors[:, findfirst(x -> x == min_energy, eigen_decomp.values)]
 
-using Plots
+using CairoMakie
 using LaTeXStrings
 begin
-    plt = plot(0:(length(energies)-1), energies, label=L"\langle H \ \rangle", lw=2, color=:black)
-    hline!(plt, [min_energy], label=L"E_0", linestyle=:dash, lw=2)
-    xlabel!(plt, "Epochs")
-    ylabel!(plt, "TFIM Energy")
-    xlims!(plt, (0, epochs))
-    plt
+    f = Figure()
+    ax = Axis(f[1, 1],
+        title="Grad. Descent on TFIM with $(nlayers) layers and $(nbits) sites.",
+        xlabel="# Epochs",
+        ylabel="<E>")
+    for energies in energy_trajectories
+        lines!(ax, 0:(length(energies)-1), energies, label=L"\langle H \ \rangle", color=:black, alpha=0.7)
+    end
+    hlines!(ax, [min_energy], label=L"E_0", linestyle=:dash)
+    xlims!(ax, (0, epochs))
+    f
 end

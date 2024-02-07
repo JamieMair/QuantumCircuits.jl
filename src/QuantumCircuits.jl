@@ -136,5 +136,9 @@ function zero_state_tensor(type, n::Integer)
 end
 zero_state_tensor(n) = zero_state_tensor(ComplexF64, n)
 
+## CIRCUITS
+include("circuits.jl")
+export GenericBrickworkCircuit, reconstruct, measure, gradient, gradients, optimise!
+
 
 end
