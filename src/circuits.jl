@@ -6,8 +6,9 @@ struct GenericBrickworkCircuit{T<:Real}
     ngates::Int
     gate_angles::Matrix{T}
 end
+circuit_layer_starts(layer_number, nbits) = (1 + (layer_number-1) % 2):2:(nbits-1)
 function brickwork_num_gates(nbits, nlayers)
-    return sum(n->length((1 + (n-1) % 2):(nbits-1)), 1:nlayers)
+    return sum(l->length(circuit_layer_starts(l, nbits)), 1:nlayers)
 end
 function GenericBrickworkCircuit(nbits, nlayers)
     ngates = brickwork_num_gates(nbits, nlayers)
@@ -19,7 +20,7 @@ function QuantumCircuits.apply!(ψ′, ψ, circuit::GenericBrickworkCircuit)
     # todo - correct this to use two buffers
     gate_idx = 1
     for l in 1:circuit.nlayers
-        for j in (1 + (l-1) % 2):(circuit.nbits-1)
+        for j in circuit_layer_starts(l, circuit.nbits)
             angles = view(circuit.gate_angles, :, gate_idx)
             gate = Localised2SpinAdjGate(build_general_unitary_gate(angles), Val(j))
             apply!(ψ′, ψ, gate)
