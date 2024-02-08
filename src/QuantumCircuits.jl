@@ -76,9 +76,12 @@ function apply(ψ, gates::AbstractArray{<:AbstractGate})
 end
 
 function apply!(ψ′, ψ, gate::Localised1SpinGate{G, K}) where {G, K}
-    @boundscheck size(ψ′) == size(ψ)
+    @boundscheck size(ψ′) == size(ψ) || error("ψ′ must be the same size as ψ.")
     ψ′ .= zero(eltype(ψ′))
     u = mat(gate)
+
+    nqubits = ndims(ψ)
+    @assert K <= nqubits && K >= 1 "The gate cannot be applied as it sits outside the qubit space."
     @inbounds for idxs in product((1:2 for _ in 1:ndims(ψ))...)
         pre_idxs = idxs[1:K-1]
         post_idxs = idxs[K+1:end]
@@ -91,9 +94,13 @@ function apply!(ψ′, ψ, gate::Localised1SpinGate{G, K}) where {G, K}
     ψ′
 end
 function apply!(ψ′, ψ, gate::Localised2SpinAdjGate{G, K}) where {G, K}
-    @boundscheck size(ψ′) == size(ψ)
+    @boundscheck size(ψ′) == size(ψ) || error("ψ′ must be the same size as ψ.")
     ψ′ .= zero(eltype(ψ′))
     u = mat(gate)
+
+    nqubits = ndims(ψ)
+    @assert K < nqubits && K > 0 "The gate cannot be applied as it sits outside the qubit space."
+
     @inbounds for idxs in product((1:2 for _ in 1:ndims(ψ))...)
         pre_idxs = idxs[1:K-1]
         post_idxs = idxs[K+2:end]
@@ -107,6 +114,43 @@ function apply!(ψ′, ψ, gate::Localised2SpinAdjGate{G, K}) where {G, K}
         end
     end
     ψ′
+end
+
+function _right_apply_gate!(M′, M, gate::Localised2SpinAdjGate{G, K}) where {G, K}
+    # Assuming M′ and M are both 2x2x....x2 tensors with nbits*2 dimensions
+    u = mat(gate)
+
+    for idxs in product((1:2 for _ in 1:ndims(M))...)
+        pre_idxs = idxs[1:K-1]
+        post_idxs = idxs[K+2:end]
+        contract_idxs = (idxs[K], idxs[K+1])
+        m = M[idxs...]
+        for j in 1:2
+            for i in 1:2
+                # u is reversed as Julia is column-major unlike row major of numpy
+                M′[pre_idxs..., i, j, post_idxs...] += m * u[i, j, contract_idxs...]
+            end
+        end
+    end
+    ψ′
+end
+
+function right_apply_gate!(M′::AbstractMatrix, M::AbstractMatrix, gate::Localised2SpinAdjGate{G, K}) where {G, K}
+    @boundscheck size(M′) == size(M) || error("M′ must be the same size as M")
+    @boundscheck ndims(M) == 2 || error("Must be a matrix")
+    @boundscheck size(M, 1) == size(M, 2) || error("Must be a square matrix")
+
+    fill!(M′, zero(eltype(M′)))
+    u = mat(gate)
+
+    nbits = log2(size(M, 1))
+    @assert nbits % 1 == 0 "The matrix must have a power of two edge"
+    nbits = Int(round(nbits))
+
+    M = reshape(M, Tuple(2 for _ in 1:2nbits))
+    M′ = reshape(M, Tuple(2 for _ in 1:2nbits))
+
+    _right_apply_gate!(M′, M, gate)
 end
 
 """
@@ -138,6 +182,8 @@ zero_state_tensor(n) = zero_state_tensor(ComplexF64, n)
 
 ## CIRCUITS
 include("circuits.jl")
+include("gradients.jl")
+
 export GenericBrickworkCircuit, reconstruct, measure, gradient, gradients, optimise!
 
 
