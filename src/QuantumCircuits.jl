@@ -4,6 +4,8 @@ using StaticArrays
 using LinearAlgebra
 import Base.Iterators: product
 
+# Move to a pkg extension soon!
+using KernelAbstractions
 
 ## EXPORTS
 export apply, apply!
@@ -114,6 +116,64 @@ function apply!(ψ′, ψ, gate::Localised2SpinAdjGate{G, K}) where {G, K}
         end
     end
     ψ′
+end
+
+@kernel function _apply_2spin!(ψ′, @Const(ψ), @Const(u), val_K::Val{K′}, val_dims::Val{D}) where {K′, D}
+    # cartesian_idx = @index(Global, Cartesian)
+    idx = @index(Global, Linear)
+
+    K = UInt32(K′)
+    idx = Int32(idx-Int32(1)) # change to zero based
+    t_one = one(typeof(idx))
+    t_two = t_one << 1 # multiply by two
+
+    pre_index = idx % (one(typeof(idx)) << (K-1))
+    i = (idx >> (K-t_one)) % t_two + t_one
+    j = (idx >> (K)) % t_two + t_one
+    post_index = (idx >> (K+t_one)) << (K+t_one)
+
+    # x = idx
+    # for i in 1:(K-1)
+    #     (x, rem) = divrem(x, two)
+    #     pre_offset += rem << (i-1)
+    # end
+
+    # pre_idxs = idxs[1:K-1]
+    # post_idxs = idxs[K+2:end]
+    # i, j = idxs[K], idxs[K+1]
+
+    psi = zero(eltype(ψ))
+    @inbounds for a in Base.OneTo(t_two)
+        for b in Base.OneTo(t_two)
+            # u is reversed as Julia is column-major unlike row major of numpy
+            acc_idx = pre_index + ((a-t_one) << (K-1)) + ((b-t_one) << K) + post_index + t_one # change to one-based
+            
+            psi += ψ[acc_idx] * u[i, j, a, b]
+        end
+    end
+    ψ′[idx+t_one] = psi
+
+    nothing
+end
+
+workgroup_default_size(::KernelAbstractions.CPU) = 16
+workgroup_default_size(::KernelAbstractions.GPU) = 256
+
+function apply_dev!(gate_array, ψ′, ψ, gate::Localised2SpinAdjGate{G, K}) where {G, K}
+    @boundscheck size(ψ′) == size(ψ) || error("ψ′ must be the same size as ψ.")
+    ψ′ .= zero(eltype(ψ′))
+    # Send the gate to the GPU
+    copyto!(gate_array, mat(gate))
+    
+    nqubits = ndims(ψ)
+    @assert K < nqubits && K > 0 "The gate cannot be applied as it sits outside the qubit space."
+
+    backend = get_backend(ψ′)
+    kernel = _apply_2spin!(backend, min(workgroup_default_size(backend), length(ψ)))
+    kernel(ψ′, ψ, gate_array, Val(K), Val(nqubits), ndrange=length(ψ))
+    synchronize(backend)
+
+    return ψ′
 end
 
 function _right_apply_gate!(M′, M, gate::Localised2SpinAdjGate{G, K}) where {G, K}

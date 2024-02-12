@@ -1,14 +1,16 @@
 using Revise
 using Random
 using Test
+using LinearAlgebra
+using SparseArrays
 include("test_brickwork_problem.jl")
 
-nbits = 4;
-nlayers = 4;
+nbits = 12;
+nlayers = 8;
 J = 1;
 h = 0.5;
 g = 0;
-H = build_hamiltonian(nbits, J, h, g);
+H = sparse(build_hamiltonian(nbits, J, h, g));
 
 circuit = GenericBrickworkCircuit(nbits, nlayers);
 
@@ -19,6 +21,12 @@ circuit.gate_angles .*= 0.01
 correct_grads = gradients(H, ψ₀, circuit)
 E_actual = measure(H, ψ₀, circuit)
 E_test, other_grads = calculate_grads(H, ψ₀, circuit)
+
+
+# NOTES: 
+# - Re-write Hamiltonian calculation to a) use a sparse Matrix or b) use a loop and perhaps a GPU kernel
+# - Re-write gate application so that it can work on the GPU (construct gate -> copy matrix to GPU -> apply gate)
+# - Test speed-up to ensure higher performance
 
 # @enter calculate_grads(H, ψ₀, circuit)
 
