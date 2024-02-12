@@ -43,11 +43,12 @@ function reconstruct(circuit::GenericBrickworkCircuit, angle, angle_offset)
 end
 function measure(H::AbstractMatrix, ψ::AbstractArray)
     @assert ndims(H) == 2
-    if ndims(ψ) != 2
+    if ndims(ψ) != 2 || size(ψ, 2) != 1
         ψ = reshape(ψ, :, 1) # reshape to column vector
     end
-    measurement = adjoint(ψ) * (H * ψ)
-    return real(measurement[begin])
+    measurement = (adjoint(ψ) * (H * ψ))[begin]
+    @assert imag(measurement) < 1e-12 # threshold for  imaginary error
+    return real(measurement)
 end
 function measure(H::AbstractMatrix, ψ₀::AbstractArray, circuit::GenericBrickworkCircuit)
     ψ = copy(ψ₀)

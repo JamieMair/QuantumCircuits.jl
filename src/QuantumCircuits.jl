@@ -118,21 +118,25 @@ end
 
 function _right_apply_gate!(M′, M, gate::Localised2SpinAdjGate{G, K}) where {G, K}
     # Assuming M′ and M are both 2x2x....x2 tensors with nbits*2 dimensions
+    fill!(M′, zero(eltype(M′)))
     u = mat(gate)
 
+    nbits = ndims(M) ÷ 2
+    X = K + nbits
+
     for idxs in product((1:2 for _ in 1:ndims(M))...)
-        pre_idxs = idxs[1:K-1]
-        post_idxs = idxs[K+2:end]
-        contract_idxs = (idxs[K], idxs[K+1])
+        pre_idxs = idxs[1:X-1]
+        post_idxs = idxs[X+2:end]
+        contract_idxs = (idxs[X], idxs[X+1])
         m = M[idxs...]
         for j in 1:2
             for i in 1:2
                 # u is reversed as Julia is column-major unlike row major of numpy
-                M′[pre_idxs..., i, j, post_idxs...] += m * u[i, j, contract_idxs...]
+                M′[pre_idxs..., i, j, post_idxs...] += m * u[contract_idxs..., i, j]
             end
         end
     end
-    ψ′
+    return M′
 end
 
 function right_apply_gate!(M′::AbstractMatrix, M::AbstractMatrix, gate::Localised2SpinAdjGate{G, K}) where {G, K}
@@ -140,15 +144,13 @@ function right_apply_gate!(M′::AbstractMatrix, M::AbstractMatrix, gate::Locali
     @boundscheck ndims(M) == 2 || error("Must be a matrix")
     @boundscheck size(M, 1) == size(M, 2) || error("Must be a square matrix")
 
-    fill!(M′, zero(eltype(M′)))
-    u = mat(gate)
 
     nbits = log2(size(M, 1))
     @assert nbits % 1 == 0 "The matrix must have a power of two edge"
     nbits = Int(round(nbits))
 
     M = reshape(M, Tuple(2 for _ in 1:2nbits))
-    M′ = reshape(M, Tuple(2 for _ in 1:2nbits))
+    M′ = reshape(M′, Tuple(2 for _ in 1:2nbits))
 
     _right_apply_gate!(M′, M, gate)
 end
@@ -185,6 +187,7 @@ include("circuits.jl")
 include("gradients.jl")
 
 export GenericBrickworkCircuit, reconstruct, measure, gradient, gradients, optimise!
+export calculate_grads
 
 
 end
