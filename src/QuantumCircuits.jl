@@ -132,16 +132,6 @@ end
     j = (idx >> (K)) % t_two + t_one
     post_index = (idx >> (K+t_one)) << (K+t_one)
 
-    # x = idx
-    # for i in 1:(K-1)
-    #     (x, rem) = divrem(x, two)
-    #     pre_offset += rem << (i-1)
-    # end
-
-    # pre_idxs = idxs[1:K-1]
-    # post_idxs = idxs[K+2:end]
-    # i, j = idxs[K], idxs[K+1]
-
     psi = zero(eltype(ψ))
     @inbounds for a in Base.OneTo(t_two)
         for b in Base.OneTo(t_two)
