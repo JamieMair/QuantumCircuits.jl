@@ -34,25 +34,45 @@ function combine_gates(gate_a::Generic2SpinGate, gate_b::Generic2SpinGate)
     return Generic2SpinGate(c)
 end
 
-measure_energy(H::AbstractMatrix, ψ) = measure_energy(H, reshape(ψ, :))
-function measure_energy(H::AbstractMatrix, ψ::AbstractVector)
-    E = dot(conj(ψ), H, ψ)
-    @assert imag(E) < 1e-15 "The energy must be approximately real"
-    return real(E)
-end
-measure_energy!(ψ′, H::AbstractMatrix, ψ) = measure_energy!(reshape(ψ′, :), H, reshape(ψ, :))
-function measure_energy!(ψ′::AbstractVector, H::AbstractMatrix, ψ::AbstractVector)
-    mul!(ψ′, H, ψ)
-    E = sum((x) -> conj(x[1]) * x[2], zip(ψ′, ψ))
-    @assert imag(E) < 1e-10 "The energy must be approximately real"
-    return real(E)
+# measure_energy(H::AbstractMatrix, ψ) = measure_energy(H, reshape(ψ, :))
+# function measure_energy(H::AbstractMatrix, ψ::AbstractVector)
+#     E = dot(conj(ψ), H, ψ)
+#     @assert imag(E) < 1e-15 "The energy must be approximately real"
+#     return real(E)
+# end
+# measure_energy!(ψ′, H::AbstractMatrix, ψ) = measure_energy!(reshape(ψ′, :), H, reshape(ψ, :))
+# function measure_energy!(ψ′::AbstractVector, H::AbstractMatrix, ψ::AbstractVector)
+#     mul!(ψ′, H, ψ)
+#     E = sum((x) -> conj(x[1]) * x[2], zip(ψ′, ψ))
+#     @assert imag(E) < 1e-10 "The energy must be approximately real"
+#     return real(E)
+# end
+
+function propagate_forwards!(ψ′, ψ, circuit::GenericBrickworkCircuit, start_layer::Int, layer_gate_idx::Int, gate_idx::Int)
+    for l in start_layer:circuit.nlayers
+        # Get an iterator over starting gate positions in this layer, skipping applied gates
+        iter = if l == start_layer
+            @views circuit_layer_starts(l, circuit.nbits)[layer_gate_idx:end]
+        else
+            circuit_layer_starts(l, circuit.nbits)
+        end
+        for j in iter
+            angles = view(circuit.gate_angles, :, gate_idx)
+            gate = Localised2SpinAdjGate(build_general_unitary_gate(angles), Val(j))
+            apply!(ψ′, ψ, gate)
+            (ψ′, ψ) = (ψ, ψ′)
+            gate_idx += 1
+        end
+    end
+    return ψ, ψ′
 end
 
 function calculate_grads(H::AbstractMatrix, ψ, circuit::GenericBrickworkCircuit)
     gradients = similar(circuit.gate_angles)
-    # todo - correct this to use two buffers
-    ψ = copy(ψ) # don't mutate initial state
-    ψ′ = similar(ψ)
+
+    ψ = copy(ψ) # Don't mutate initial state
+    ψ′ = similar(ψ) # Create a buffer for storing intermediate results
+    ψ′′ = similar(ψ) # Create a restore point for the state
 
     # Complete a pass through the circuit
     gate_idx = 1
@@ -66,18 +86,12 @@ function calculate_grads(H::AbstractMatrix, ψ, circuit::GenericBrickworkCircuit
         end
     end
 
-    
     # Measure the energy
-    E = measure_energy!(ψ′, H, ψ)
-
-    # Calculate the hermitian conjugate gates
-    M, M′ = similar(H, ComplexF64), similar(H, ComplexF64)
-    M .= H # copy over the H values
-
+    E = measure(H, ψ)
     
     gate_idx = size(circuit.gate_angles, 2) # set to last gate
     for l in circuit.nlayers:-1:1
-        for j in reverse(circuit_layer_starts(l, circuit.nbits))
+        for (layer_gate_num, j) in reverse(collect(enumerate(circuit_layer_starts(l, circuit.nbits))))
             angles = view(circuit.gate_angles, :, gate_idx)
             original_gate = Localised2SpinAdjGate(build_general_unitary_gate(angles), Val(j))
             gate_dagger = adjoint(original_gate)
@@ -86,44 +100,32 @@ function calculate_grads(H::AbstractMatrix, ψ, circuit::GenericBrickworkCircuit
             apply!(ψ′, ψ, gate_dagger)
             (ψ′, ψ) = (ψ, ψ′)
 
+            # Set a restore point for ψ
+            ψ′′ .= ψ
+
             for k in axes(angles, 1)
                 original_angle = angles[k]
 
                 # Calculate first energy
                 angles[k] = original_angle + π/2
-                gate = Localised2SpinAdjGate(build_general_unitary_gate(angles), Val(j))
-                apply!(ψ′, ψ, gate)
-                (ψ′, ψ) = (ψ, ψ′)
-                
-                E_plus = measure_energy!(ψ′, M, ψ)
+                ψ, ψ′ = propagate_forwards!(ψ′, ψ, circuit, l, layer_gate_num, gate_idx)
+                E_plus = measure(H, ψ)
 
-                # Undo the plus gate and apply the second gate
-                apply!(ψ′, ψ, adjoint(gate))
-                (ψ′, ψ) = (ψ, ψ′)
-                
-
+                # Reset to original state
+                ψ .= ψ′′
                 angles[k] = original_angle - π/2
-                gate = Localised2SpinAdjGate(build_general_unitary_gate(angles), Val(j))
-                # gate = Localised2SpinAdjGate(combine_gates(adjoint(gate.gate), minus_gate), Val(j))
-                # gate = Localised2SpinAdjGate(Generic2SpinGate(reshape(reshape((adjoint(gate)).gate.array, 4, 4) * reshape(minus_gate.array, 4, 4), 2, 2, 2, 2)), Val(j))
-                apply!(ψ′, ψ, gate)
-                (ψ′, ψ) = (ψ, ψ′)
+                ψ, ψ′ = propagate_forwards!(ψ′, ψ, circuit, l, layer_gate_num, gate_idx)
+                E_minus = measure(H, ψ)
+                
+                # Calculate gradient using formula
+                gradients[k, gate_idx] = (E_plus - E_minus) / 2
 
-                E_minus = measure_energy!(ψ′, M, ψ)
-
-                # Undo the final gate
-                apply!(ψ′, ψ, adjoint(gate))
-                (ψ′, ψ) = (ψ, ψ′)
-
+                # Reset for next angle
+                ψ .= ψ′′
                 angles[k] = original_angle
-                gradients[k, gate_idx] = real((E_plus - E_minus) / 2)
             end
 
-            # Apply the current gate to the matrix
-            right_apply_gate!(M′, M, original_gate)
-            (M′, M) = (M, M′) # Swap the arrays
-            
-            # Go to the second last gate
+            # Go to the previous gate
             gate_idx -= 1
         end
     end

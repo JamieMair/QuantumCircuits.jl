@@ -17,10 +17,12 @@ circuit.gate_angles .*= 0.01
 ψ₀ = zero_state_tensor(nbits)
 
 correct_grads = gradients(H, ψ₀, circuit)
-E, other_grads = calculate_grads(H, ψ₀, circuit)
+E_actual = measure(H, ψ₀, circuit)
+E_test, other_grads = calculate_grads(H, ψ₀, circuit)
 
-@enter calculate_grads(H, ψ₀, circuit)
+# @enter calculate_grads(H, ψ₀, circuit)
 
+@test E_actual ≈ E_actual
 @test correct_grads ≈ other_grads
 
 # Testing inner functions
