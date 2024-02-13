@@ -119,7 +119,6 @@ function apply!(ψ′, ψ, gate::Localised2SpinAdjGate{G, K}) where {G, K}
 end
 
 @kernel function _apply_2spin!(ψ′, @Const(ψ), @Const(u), val_K::Val{K′}, val_dims::Val{D}) where {K′, D}
-    # cartesian_idx = @index(Global, Cartesian)
     idx = @index(Global, Linear)
 
     K = UInt32(K′)

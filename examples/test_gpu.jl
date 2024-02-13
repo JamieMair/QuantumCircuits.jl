@@ -6,18 +6,20 @@ using SparseArrays
 using CUDA
 include("test_brickwork_problem.jl")
 
-nbits = 5;
+nbits = 6;
 nlayers = 4;
 J = 1;
-h = 0.5;
-g = 0;
-H = sparse(build_hamiltonian(nbits, J, h, g));
+# h = 0.5;
+g = 0.5;
+H = sparse(build_hamiltonian(nbits, J, g));
 
 circuit = GenericBrickworkCircuit(nbits, nlayers);
 
 Random.randn!(circuit.gate_angles);
 circuit.gate_angles .*= 0.01;
 ψ₀ = zero_state_tensor(nbits);
+
+# TODO: Put the Hamiltonian calculation on the GPU and do not require a matrix to be used
 
 
 function test_forward(ψ, circuit)
@@ -63,3 +65,4 @@ H_gpu = cu(H)
 correct_grads = gradients(H, ψ₀, circuit)
 E_actual = measure(H, ψ₀, circuit)
 E_test, other_grads = calculate_grads(H, ψ₀, circuit)
+
