@@ -26,13 +26,14 @@ function test_forward(ψ, circuit)
     ψ = copy(ψ) # Don't mutate initial state
     ψ′ = similar(ψ) # Create a buffer for storing intermediate results
     u = Array{ComplexF64}(undef, 2, 2, 2, 2)
+    u_cpu = similar(u)
     # Complete a pass through the circuit
     gate_idx = 1
     for l in 1:circuit.nlayers
         for j in QuantumCircuits.circuit_layer_starts(l, circuit.nbits)
             angles = view(circuit.gate_angles, :, gate_idx)
             gate = Localised2SpinAdjGate(build_general_unitary_gate(angles), Val(j))
-            QuantumCircuits.apply_dev!(u, ψ′, ψ, gate)
+            QuantumCircuits.apply_dev!(u_cpu, u, ψ′, ψ, gate)
             (ψ′, ψ) = (ψ, ψ′)
             gate_idx += 1
         end
@@ -44,13 +45,14 @@ function test_gpu(ψ, circuit)
     ψ = copy(ψ) # Don't mutate initial state
     ψ′ = similar(ψ) # Create a buffer for storing intermediate results
     u = CuArray(Array{ComplexF64}(undef, 2, 2, 2, 2))
+    u_cpu = Array(u)
     # Complete a pass through the circuit
     gate_idx = 1
     for l in 1:circuit.nlayers
         for j in QuantumCircuits.circuit_layer_starts(l, circuit.nbits)
             angles = view(circuit.gate_angles, :, gate_idx)
             gate = Localised2SpinAdjGate(build_general_unitary_gate(angles), Val(j))
-            QuantumCircuits.apply_dev!(u, ψ′, ψ, gate)
+            QuantumCircuits.apply_dev!(u_cpu, u, ψ′, ψ, gate)
             (ψ′, ψ) = (ψ, ψ′)
             gate_idx += 1
         end

@@ -5,22 +5,32 @@ using LinearAlgebra
 using SparseArrays
 include("test_brickwork_problem.jl")
 
-nbits = 12;
-nlayers = 8;
-J = 1;
-h = 0.5;
-g = 0;
-H = sparse(build_hamiltonian(nbits, J, h, g));
+nbits = 18;
+nlayers = 12;
+J = 1.0;
+g = 0.5;
+# H = sparse(build_hamiltonian(nbits, J, g));
+
+Heff = TFIMHamiltonian(J, g)
 
 circuit = GenericBrickworkCircuit(nbits, nlayers);
 
 Random.randn!(circuit.gate_angles)
 circuit.gate_angles .*= 0.01
-ψ₀ = zero_state_tensor(nbits)
-
+ψ₀ = zero_state_tensor(nbits);
 correct_grads = gradients(H, ψ₀, circuit)
 E_actual = measure(H, ψ₀, circuit)
-E_test, other_grads = calculate_grads(H, ψ₀, circuit)
+E_test, other_grads = calculate_grads(Heff, ψ₀, circuit)
+
+@test E_actual ≈ E_test
+@test correct_grads ≈ other_grads
+
+# Test on the GPU
+E_test_gpu, other_grads_gpu = calculate_grads(Heff, CuArray(ψ₀), circuit)
+
+
+@test E_actual ≈ E_test_gpu
+@test correct_grads ≈ other_grads_gpu
 
 
 # NOTES: 
@@ -29,9 +39,6 @@ E_test, other_grads = calculate_grads(H, ψ₀, circuit)
 # - Test speed-up to ensure higher performance
 
 # @enter calculate_grads(H, ψ₀, circuit)
-
-@test E_actual ≈ E_actual
-@test correct_grads ≈ other_grads
 
 # Testing inner functions
 

@@ -148,18 +148,26 @@ end
 workgroup_default_size(::KernelAbstractions.CPU) = 16
 workgroup_default_size(::KernelAbstractions.GPU) = 256
 
-function apply_dev!(gate_array, ψ′, ψ, gate::Localised2SpinAdjGate{G, K}) where {G, K}
+function apply_dev!(temp_gate_cpu_array, device_gate_array, ψ′::AbstractArray{T, N}, ψ::AbstractArray{T, N}, gate::Localised2SpinAdjGate{G, K}) where {T, N, G, K}
     @boundscheck size(ψ′) == size(ψ) || error("ψ′ must be the same size as ψ.")
     ψ′ .= zero(eltype(ψ′))
-    # Send the gate to the GPU
-    copyto!(gate_array, mat(gate))
+
+
+    # Send the gate to the device
+    if typeof(get_backend(device_gate_array)) <:CPU
+        device_gate_array = mat(gate)
+        # gate_array .= mat(gate) # directly copy the array
+    else
+        temp_gate_cpu_array .= mat(gate)
+        KernelAbstractions.copyto!(get_backend(device_gate_array), device_gate_array, temp_gate_cpu_array)
+    end
     
     nqubits = ndims(ψ)
     @assert K < nqubits && K > 0 "The gate cannot be applied as it sits outside the qubit space."
 
     backend = get_backend(ψ′)
     kernel = _apply_2spin!(backend, min(workgroup_default_size(backend), length(ψ)))
-    kernel(ψ′, ψ, gate_array, Val(K), Val(nqubits), ndrange=length(ψ))
+    kernel(ψ′, ψ, device_gate_array, gate.gate_dim_val, Val(N), ndrange=length(ψ))
     synchronize(backend)
 
     return ψ′
@@ -233,7 +241,13 @@ zero_state_tensor(n) = zero_state_tensor(ComplexF64, n)
 
 ## CIRCUITS
 include("circuits.jl")
+
+## HAMILTONIANS
+include("hamiltonians.jl")
+
+## GRADIENTS
 include("gradients.jl")
+
 
 export GenericBrickworkCircuit, reconstruct, measure, gradient, gradients, optimise!
 export calculate_grads
