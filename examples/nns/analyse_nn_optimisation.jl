@@ -11,6 +11,6 @@ original_results = (
 )
 results = sort(process_results(original_results...), by=x -> length(x.c_architecture[1]) == 0 ? 0 : sum(y -> y.neurons, x.c_architecture[1]))
 
-f = plot_all_energy_trajectories(results...; plot)
+f = plot_all_energy_trajectories(results...)
 
 CairoMakie.save("hpc/results/nn_optimisation_low_lr.pdf", f; pt_per_unit=1)

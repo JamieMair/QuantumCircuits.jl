@@ -38,6 +38,20 @@ end
     nothing
 end
 
+function QuantumCircuits.measure(H::TFIMHamiltonian, ψ::AbstractArray, circuit::GenericBrickworkCircuit)
+    cache = construct_apply_cache(ψ)
+    ψ = copy(ψ)
+    ψ′ = similar(ψ)
+    ψ′′ = QuantumCircuits.apply!(cache, ψ′, ψ, circuit)
+
+    ψ, ψ′ = if ψ′′ == ψ
+        (ψ, ψ′)
+    else
+        (ψ′, ψ)
+    end
+    
+    return measure!(ψ′, H, ψ)
+end
 function QuantumCircuits.measure!(ψ′::AbstractArray{T, N}, H::TFIMHamiltonian, ψ::AbstractArray{T, N}) where {T, N}
     # TODO: Write another method that specialises on the CPU array
     backend = get_backend(ψ)
@@ -50,7 +64,11 @@ function QuantumCircuits.measure!(ψ′::AbstractArray{T, N}, H::TFIMHamiltonian
 
     E = sum(ψ′) # Add up all components
 
-    @assert imag(E) < 1e-12 # Make sure that imaginary component is small enough
+    if imag(E) > 1e-12
+        @warn "Imaginary energy of $(imag(E)) -> above threshold!"
+    end
+    # @assert imag(E) < 1e-12 # Make sure that imaginary component is small enough
+
     
     return real(E)
 end

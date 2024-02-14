@@ -36,7 +36,7 @@ The original state is not modified, unlike in the `apply!` version.
 """
 function QuantumCircuits.apply(ψ::AbstractArray, circuit::GenericBrickworkCircuit)
     cache = construct_apply_cache(ψ)
-    ψ = similar(ψ)
+    ψ = copy(ψ)
     ψ′ = similar(ψ)
     return QuantumCircuits.apply!(cache, ψ′, ψ, circuit)
 end

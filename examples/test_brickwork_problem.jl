@@ -1,9 +1,4 @@
 using QuantumCircuits
-using KernelAbstractions
-import KernelAbstractions.Extras.LoopInfo: @unroll
-using Random
-using LinearAlgebra
-using ProgressBars
 
 
 function build_hamiltonian(n, J, g)

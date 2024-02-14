@@ -1,13 +1,14 @@
 using Revise
+using QuantumCircuits
 include("test_brickwork_problem.jl")
 
 
-nbits = 4;
-nlayers = 6;
-J = 1;
-h = 0.5;
-g = 0;
-H = build_hamiltonian(nbits, J, h, g);
+nbits = 12;
+nlayers = 8;
+J = 1.0;
+g = 0.5;
+H = TFIMHamiltonian(J, g);
+H_matrix = build_hamiltonian(nbits, J, g);
 
 circuit = GenericBrickworkCircuit(nbits, nlayers);
 nrepeats = 3
@@ -31,7 +32,7 @@ energy_trajectories = [test_optimise(circuit, H, epochs, lr) for _ in 1:nrepeats
 ψ = reshape(apply(ψ₀, circuit), :, 1);
 ψ = sqrt.(real.(ψ .* conj.(ψ)))
 
-eigen_decomp = eigen(H);
+eigen_decomp = eigen(H_matrix);
 min_energy = minimum(eigen_decomp.values);
 ground_state = eigen_decomp.vectors[:, findfirst(x -> x == min_energy, eigen_decomp.values)]
 

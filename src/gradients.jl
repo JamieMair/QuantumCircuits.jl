@@ -4,10 +4,10 @@ function optimise!(circuit::GenericBrickworkCircuit, H, ψ₀, epochs, lr; use_p
     
     energies = zeros(Float64, length(iter)+1)
 
-    cache_args = construct_grads_cache(ψ₀, circuit)
+    cache_args = construct_grads_cache(ψ₀)
 
     for i in iter 
-        E, grads = gradients!(cache_args..., H, circuit)
+        E, grads = gradients!(cache_args..., H, ψ₀, circuit)
         energies[i+1] = E
 
         circuit.gate_angles .-= lr .* grads
@@ -70,24 +70,24 @@ function propagate_forwards!(cache, ψ′, ψ, circuit::GenericBrickworkCircuit,
     return ψ, ψ′
 end
 
-function construct_grads_cache(ψ, circuit)
-    gradients = similar(circuit.gate_angles)
-
-    ψ = copy(ψ) # Don't mutate initial state
+function construct_grads_cache(ψ)
+    ψ = similar(ψ) # Don't mutate initial state
     ψ′ = similar(ψ) # Create a buffer for storing intermediate results
     ψ′′ = similar(ψ) # Create a restore point for the state
 
     cache = construct_apply_cache(ψ)
 
-    return (cache, gradients, ψ′, ψ′′, ψ)
+    return (cache, ψ′, ψ′′, ψ)
 end
 
 function gradients(H, ψ, circuit::GenericBrickworkCircuit)
-    cache_args = construct_grads_cache(ψ, circuit)
-    return gradients!(cache_args..., H, circuit)
+    cache_args = construct_grads_cache(ψ)
+    return gradients!(cache_args..., H,ψ, circuit)
 end
 
-function gradients!(cache, gradients, ψ′, ψ′′, ψ, H, circuit::GenericBrickworkCircuit)
+function gradients!(cache, ψ′, ψ′′, ψ, H, ψ₀, circuit::GenericBrickworkCircuit)
+    gradients = similar(circuit.gate_angles)
+    ψ .= ψ₀ # Set initial state
     # Complete a pass through the circuit
     gate_idx = 1
     for l in 1:circuit.nlayers
