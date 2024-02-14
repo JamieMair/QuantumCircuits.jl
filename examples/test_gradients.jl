@@ -3,21 +3,23 @@ using Random
 using Test
 using LinearAlgebra
 using SparseArrays
+using CUDA
 include("test_brickwork_problem.jl")
 
-nbits = 18;
-nlayers = 12;
+nbits = 8;
+nlayers = 8;
 J = 1.0;
 g = 0.5;
-# H = sparse(build_hamiltonian(nbits, J, g));
+H = sparse(build_hamiltonian(nbits, J, g));
 
-Heff = TFIMHamiltonian(J, g)
+Heff = TFIMHamiltonian(Float64(J), g)
 
 circuit = GenericBrickworkCircuit(nbits, nlayers);
 
 Random.randn!(circuit.gate_angles)
 circuit.gate_angles .*= 0.01
 ψ₀ = zero_state_tensor(nbits);
+
 correct_grads = gradients(H, ψ₀, circuit)
 E_actual = measure(H, ψ₀, circuit)
 E_test, other_grads = calculate_grads(Heff, ψ₀, circuit)
@@ -26,7 +28,8 @@ E_test, other_grads = calculate_grads(Heff, ψ₀, circuit)
 @test correct_grads ≈ other_grads
 
 # Test on the GPU
-E_test_gpu, other_grads_gpu = calculate_grads(Heff, CuArray(ψ₀), circuit)
+ψgpu = CuArray(ψ₀);
+@time E_test_gpu, other_grads_gpu = calculate_grads(Heff, ψgpu, circuit)
 
 
 @test E_actual ≈ E_test_gpu
@@ -48,7 +51,7 @@ randn!(ψ)
 
 A = similar(H, ComplexF64)
 A .= H
-gate = Localised2SpinAdjGate(build_general_unitary_gate(rand(15)), Val(2))
+gate = Localised2SpinAdjGate(build_general_unitary_gate(rand(15)), 2)
 B = convert_gates_to_matrix(nbits, [gate])
 
 C = A * B

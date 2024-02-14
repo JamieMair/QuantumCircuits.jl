@@ -9,8 +9,8 @@ end
 function LinearAlgebra.adjoint(gate::Generic2SpinGate)
     return Generic2SpinGate(reshape(adjoint(reshape(gate.array, 4, 4)), 2, 2, 2, 2))
 end
-function LinearAlgebra.adjoint(gate::Localised2SpinAdjGate{G, K}) where {G, K}
-    return Localised2SpinAdjGate(adjoint(gate.gate), Val(K))
+function LinearAlgebra.adjoint(gate::Localised2SpinAdjGate)
+    return Localised2SpinAdjGate(adjoint(gate.gate), gate.target_gate_dim)
 end
 
 function combine_gates(gate_a::Generic2SpinGate, gate_b::Generic2SpinGate)
@@ -43,7 +43,7 @@ function propagate_forwards!(u_cpu, u, ψ′, ψ, circuit::GenericBrickworkCircu
         end
         for j in iter
             angles = view(circuit.gate_angles, :, gate_idx)
-            gate = Localised2SpinAdjGate(build_general_unitary_gate(angles), Val(j))
+            gate = Localised2SpinAdjGate(build_general_unitary_gate(angles), j)
             apply_dev!(u_cpu, u, ψ′, ψ, gate)
             (ψ′, ψ) = (ψ, ψ′)
             gate_idx += 1
@@ -67,7 +67,7 @@ function calculate_grads(H::TFIMHamiltonian, ψ, circuit::GenericBrickworkCircui
     for l in 1:circuit.nlayers
         for j in circuit_layer_starts(l, circuit.nbits)
             angles = view(circuit.gate_angles, :, gate_idx)
-            gate = Localised2SpinAdjGate(build_general_unitary_gate(angles), Val(j))
+            gate = Localised2SpinAdjGate(build_general_unitary_gate(angles), j)
             apply_dev!(u_cpu, u, ψ′, ψ, gate)
             (ψ′, ψ) = (ψ, ψ′)
             gate_idx += 1
@@ -81,7 +81,7 @@ function calculate_grads(H::TFIMHamiltonian, ψ, circuit::GenericBrickworkCircui
     for l in circuit.nlayers:-1:1
         for (layer_gate_num, j) in reverse(collect(enumerate(circuit_layer_starts(l, circuit.nbits))))
             angles = view(circuit.gate_angles, :, gate_idx)
-            original_gate = Localised2SpinAdjGate(build_general_unitary_gate(angles), Val(j))
+            original_gate = Localised2SpinAdjGate(build_general_unitary_gate(angles), j)
             gate_dagger = adjoint(original_gate)
 
             # Undo the current gate by applying the Hermitian conjugate

@@ -22,7 +22,7 @@ function QuantumCircuits.apply!(ψ′, ψ, circuit::GenericBrickworkCircuit)
     for l in 1:circuit.nlayers
         for j in circuit_layer_starts(l, circuit.nbits)
             angles = view(circuit.gate_angles, :, gate_idx)
-            gate = Localised2SpinAdjGate(build_general_unitary_gate(angles), Val(j))
+            gate = Localised2SpinAdjGate(build_general_unitary_gate(angles), j)
             apply!(ψ′, ψ, gate)
             (ψ′, ψ) = (ψ, ψ′)
             gate_idx += 1

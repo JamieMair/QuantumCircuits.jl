@@ -115,14 +115,14 @@ struct Generic2SpinGate{T, AT<:AbstractArray{T,4}} <: Abstract2SpinGate
 end
 mat(g::Generic2SpinGate) = g.array
 
-struct Localised1SpinGate{G<:Abstract1SpinGate, K} <: Abstract1SpinGate
+struct Localised1SpinGate{G<:Abstract1SpinGate} <: Abstract1SpinGate
     gate::G
-    gate_dim_val::Val{K}
+    target_gate_dim::Int
 end
 mat(l::Localised1SpinGate) = mat(l.gate)
 # NOTE: Acts on spin K and K+1
-struct Localised2SpinAdjGate{G<:Abstract2SpinGate, K} <: Abstract2SpinGate
+struct Localised2SpinAdjGate{G<:Abstract2SpinGate} <: Abstract2SpinGate
     gate::G
-    gate_dim_val::Val{K}
+    target_gate_dim::Int
 end
 mat(l::Localised2SpinAdjGate) = mat(l.gate)
