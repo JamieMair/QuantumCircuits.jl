@@ -3,6 +3,7 @@ using Random
 using Test
 using LinearAlgebra
 using SparseArrays
+using CUDA
 include("test_brickwork_problem.jl")
 
 nbits = 18;
