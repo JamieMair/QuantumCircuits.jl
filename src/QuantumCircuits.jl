@@ -27,7 +27,7 @@ matrix_only_mat(gate::QuantumCircuits.Abstract2SpinGate) = reshape(QuantumCircui
 
 function convert_gates_to_matrix(nbits, gates)
     gate_dict = Dict{Int, QuantumCircuits.AbstractGate}(
-        (getval(g.gate_dim_val)=>g for g in gates)...
+        (g.target_gate_dim=>g for g in gates)...
     )
     out_mats = []
     i = 1
