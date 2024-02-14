@@ -6,12 +6,13 @@ using SparseArrays
 using CUDA
 include("test_brickwork_problem.jl")
 
-nbits = 6;
+nbits = 14;
 nlayers = 4;
-J = 1;
+J = 1.0;
 # h = 0.5;
 g = 0.5;
 H = sparse(build_hamiltonian(nbits, J, g));
+Heff = TFIMHamiltonian(Float64(J), g);
 
 circuit = GenericBrickworkCircuit(nbits, nlayers);
 
@@ -63,8 +64,16 @@ end
 
 H_gpu = cu(H)
 
-@enter test_forward(ψ₀, circuit)
 correct_grads = gradients(H, ψ₀, circuit)
 E_actual = measure(H, ψ₀, circuit)
-E_test, other_grads = calculate_grads(H, ψ₀, circuit)
+E_test, other_grads = calculate_grads(Heff, ψ₀, circuit)
+
+@test E_actual ≈ E_test
+@test correct_grads ≈ other_grads
+
+
+E_test_gpu, other_grads_gpu = calculate_grads(Heff, CuArray(ψ₀), circuit)
+
+@test E_actual ≈ E_test_gpu
+@test correct_grads ≈ other_grads_gpu
 

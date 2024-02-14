@@ -7,7 +7,7 @@ using CUDA
 include("test_brickwork_problem.jl")
 
 nbits = 8;
-nlayers = 8;
+nlayers = 4;
 J = 1.0;
 g = 0.5;
 H = sparse(build_hamiltonian(nbits, J, g));
@@ -20,28 +20,21 @@ Random.randn!(circuit.gate_angles)
 circuit.gate_angles .*= 0.01
 ψ₀ = zero_state_tensor(nbits);
 
-correct_grads = gradients(H, ψ₀, circuit)
-E_actual = measure(H, ψ₀, circuit)
-E_test, other_grads = calculate_grads(Heff, ψ₀, circuit)
+E, grads = gradients(Heff, ψ₀, circuit)
+E_m, grads_m = gradients(H, ψ₀, circuit)
 
-@test E_actual ≈ E_test
-@test correct_grads ≈ other_grads
+@test E ≈ E_m
+@test grads ≈ grads_m
 
 # Test on the GPU
 ψgpu = CuArray(ψ₀);
-@time E_test_gpu, other_grads_gpu = calculate_grads(Heff, ψgpu, circuit)
+E_gpu, grads_gpu = gradients(Heff, ψgpu, circuit)
 
 
-@test E_actual ≈ E_test_gpu
-@test correct_grads ≈ other_grads_gpu
+@test E ≈ E_gpu
+@test grads ≈ grads_gpu
 
 
-# NOTES: 
-# - Re-write Hamiltonian calculation to a) use a sparse Matrix or b) use a loop and perhaps a GPU kernel
-# - Re-write gate application so that it can work on the GPU (construct gate -> copy matrix to GPU -> apply gate)
-# - Test speed-up to ensure higher performance
-
-# @enter calculate_grads(H, ψ₀, circuit)
 
 # Testing inner functions
 

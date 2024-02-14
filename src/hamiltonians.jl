@@ -38,7 +38,7 @@ end
     nothing
 end
 
-function measure!(ψ′::AbstractArray{T, N}, H::TFIMHamiltonian, ψ::AbstractArray{T, N}) where {T, N}
+function QuantumCircuits.measure!(ψ′::AbstractArray{T, N}, H::TFIMHamiltonian, ψ::AbstractArray{T, N}) where {T, N}
     # TODO: Write another method that specialises on the CPU array
     backend = get_backend(ψ)
     n_configurations = length(ψ)

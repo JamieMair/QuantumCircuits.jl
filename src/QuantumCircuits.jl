@@ -146,26 +146,56 @@ end
 workgroup_default_size(::KernelAbstractions.CPU) = 16
 workgroup_default_size(::KernelAbstractions.GPU) = 256
 
-function apply_dev!(temp_gate_cpu_array, device_gate_array, ψ′::AbstractArray{T, N}, ψ::AbstractArray{T, N}, gate::Localised2SpinAdjGate) where {T, N}
-    @boundscheck size(ψ′) == size(ψ) || error("ψ′ must be the same size as ψ.")
-    ψ′ .= zero(eltype(ψ′))
-    K = gate.target_gate_dim
+struct CPUApplyCache end
+struct GPUApplyCache{CA, DA}
+    cpu_gate_array_cache::CA
+    device_gate_array_cache::DA
+end
 
-    # Send the gate to the device
-    if typeof(get_backend(device_gate_array)) <:CPU
-        device_gate_array = mat(gate)
-        # gate_array .= mat(gate) # directly copy the array
+function construct_apply_cache(ψ)
+    backend = get_backend(ψ)
+    if typeof(backend) <: CPU
+        return CPUApplyCache()
     else
-        temp_gate_cpu_array .= mat(gate)
-        KernelAbstractions.copyto!(get_backend(device_gate_array), device_gate_array, temp_gate_cpu_array)
+        cpu_gate = Array{ComplexF64, 4}(undef, 2, 2, 2, 2)
+        gpu_gate = allocate(backend, ComplexF64, 2, 2, 2, 2)
+        return GPUApplyCache(cpu_gate, gpu_gate)
     end
+end
+
+function _apply_error_checks(ψ′, ψ, gate::Localised2SpinAdjGate)
+    @assert get_backend(ψ′) == get_backend(ψ) "The backend of each array must be the same"
+    @boundscheck size(ψ′) == size(ψ) || error("ψ′ must be the same size as ψ.")
     
+    K = gate.target_gate_dim
     nqubits = ndims(ψ)
     @assert K < nqubits && K > 0 "The gate cannot be applied as it sits outside the qubit space."
 
+    nothing
+end
+
+function apply!(::CPUApplyCache, ψ′::AbstractArray, ψ::AbstractArray, gate::Localised2SpinAdjGate)
+    _apply_error_checks(ψ′, ψ, gate)
+    return _apply!(ψ′, ψ, mat(gate), gate)
+end
+function apply!(cache::GPUApplyCache, ψ′::AbstractArray, ψ::AbstractArray, gate::Localised2SpinAdjGate)
+    _apply_error_checks(ψ′, ψ, gate)
+
+    # Copy over from static array onto the GPU
+    cache.cpu_gate_array_cache .= mat(gate)
+    u = cache.device_gate_array_cache
+    device_backend = get_backend(u)
+    KernelAbstractions.copyto!(device_backend, u, cache.cpu_gate_array_cache)
+
+
+    return _apply!(ψ′, ψ, u, gate)
+end
+
+function _apply!(ψ′::AbstractArray{T, N}, ψ::AbstractArray{T, N}, u, gate::Localised2SpinAdjGate) where {T, N}
+    ψ′ .= zero(eltype(ψ′))
     backend = get_backend(ψ′)
     kernel = _apply_2spin!(backend, min(workgroup_default_size(backend), length(ψ)))
-    kernel(ψ′, ψ, device_gate_array, gate.target_gate_dim, Val(N), ndrange=length(ψ))
+    kernel(ψ′, ψ, u, gate.target_gate_dim, Val(N), ndrange=length(ψ))
     synchronize(backend)
 
     return ψ′
