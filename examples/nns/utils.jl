@@ -75,8 +75,7 @@ function plot_all_energy_trajectories(dfs...; plot_log=false)
                 :yscale => CairoMakie.Makie.pseudolog10,
             ) : Dict{Symbol, Any}()
             ax = Axis(f[i, j], xlabel=L"t", ylabel=L"\langle H \rangle", title=LaTeXString("\$n=$nbits, |\\theta|\\approx 10^{$nparams_log10}\$"); additional_args...)
-            ges = unique(df[df[!, :c_nbits].==nbits, :r_ground_energy])
-            @assert length(ges) == 1 "There should be only one ground energy for a fixed number of qubits."
+
 
             for nlayers in nlayers_local_set
                 trajectories = subset(df,
@@ -99,7 +98,11 @@ function plot_all_energy_trajectories(dfs...; plot_log=false)
                 xlims!(ax, 0, maximum(epochs))
             end
 
-            hlines!(ax, ges, label=L"E_0", linestyle=:dash, alpha=0.5, color=:black)
+            if :r_ground_energy in propertynames(df)
+                ges = unique(df[df[!, :c_nbits].==nbits, :r_ground_energy])
+                @assert length(ges) == 1 "There should be only one ground energy for a fixed number of qubits."
+                hlines!(ax, ges, label=L"E_0", linestyle=:dash, alpha=0.5, color=:black)
+            end
 
         end
 
