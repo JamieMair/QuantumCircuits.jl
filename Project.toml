@@ -4,6 +4,7 @@ authors = ["Jamie Mair <JamieMair@users.noreply.github.com> and contributors"]
 version = "0.1.1"
 
 [deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MatrixProductStates = "d2b9b0d9-0b99-44d1-9ba5-49f6360db25a"
 ProgressBars = "49802e3a-d2f1-5c88-81d8-b72133a6f568"

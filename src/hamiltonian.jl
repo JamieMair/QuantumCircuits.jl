@@ -1,4 +1,3 @@
-using Revise
 using LinearAlgebra
 
 export Hamiltonian, add!
@@ -46,6 +45,7 @@ end
 
 Base.:+(ham::Hamiltonian, term::Term) = add(ham, term)  # convenience version of add!
 
+export convert_to_matrix
 function convert_to_matrix(ham::Hamiltonian)
     H_mat = zeros(2^ham.nbits, 2^ham.nbits)
 
@@ -65,6 +65,7 @@ function convert_to_matrix(ham::Hamiltonian)
     return H_mat
 end
 
+export Ising
 function Ising(nbits, J, h, g=0)
     ham = Hamiltonian(nbits)
     X = [0 1; 1 0]
