@@ -140,5 +140,10 @@ zero_state_tensor(n) = zero_state_tensor(ComplexF64, n)
 include("circuits.jl")
 export GenericBrickworkCircuit, reconstruct, measure, gradient, gradients, optimise!
 
+## HAMILTONIANS
+include("hamiltonian.jl")
+
+## MATRIX PRODUCT STATES
+include("mps.jl")
 
 end
