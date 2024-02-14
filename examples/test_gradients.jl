@@ -18,6 +18,7 @@ circuit = GenericBrickworkCircuit(nbits, nlayers);
 Random.randn!(circuit.gate_angles)
 circuit.gate_angles .*= 0.01
 ψ₀ = zero_state_tensor(nbits);
+
 correct_grads = gradients(H, ψ₀, circuit)
 E_actual = measure(H, ψ₀, circuit)
 E_test, other_grads = calculate_grads(Heff, ψ₀, circuit)
@@ -26,7 +27,8 @@ E_test, other_grads = calculate_grads(Heff, ψ₀, circuit)
 @test correct_grads ≈ other_grads
 
 # Test on the GPU
-E_test_gpu, other_grads_gpu = calculate_grads(Heff, CuArray(ψ₀), circuit)
+ψgpu = CuArray(ψ₀);
+@time E_test_gpu, other_grads_gpu = calculate_grads(Heff, ψgpu, circuit)
 
 
 @test E_actual ≈ E_test_gpu

@@ -32,7 +32,7 @@ function test_forward(ψ, circuit)
     for l in 1:circuit.nlayers
         for j in QuantumCircuits.circuit_layer_starts(l, circuit.nbits)
             angles = view(circuit.gate_angles, :, gate_idx)
-            gate = Localised2SpinAdjGate(build_general_unitary_gate(angles), Val(j))
+            gate = Localised2SpinAdjGate(build_general_unitary_gate(angles), j)
             QuantumCircuits.apply_dev!(u_cpu, u, ψ′, ψ, gate)
             (ψ′, ψ) = (ψ, ψ′)
             gate_idx += 1
@@ -51,7 +51,7 @@ function test_gpu(ψ, circuit)
     for l in 1:circuit.nlayers
         for j in QuantumCircuits.circuit_layer_starts(l, circuit.nbits)
             angles = view(circuit.gate_angles, :, gate_idx)
-            gate = Localised2SpinAdjGate(build_general_unitary_gate(angles), Val(j))
+            gate = Localised2SpinAdjGate(build_general_unitary_gate(angles), j)
             QuantumCircuits.apply_dev!(u_cpu, u, ψ′, ψ, gate)
             (ψ′, ψ) = (ψ, ψ′)
             gate_idx += 1

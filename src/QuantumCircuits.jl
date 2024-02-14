@@ -95,11 +95,11 @@ function apply!(ψ′, ψ, gate::Localised1SpinGate{G, K}) where {G, K}
     end
     ψ′
 end
-function apply!(ψ′, ψ, gate::Localised2SpinAdjGate{G, K}) where {G, K}
+function apply!(ψ′, ψ, gate::Localised2SpinAdjGate)
     @boundscheck size(ψ′) == size(ψ) || error("ψ′ must be the same size as ψ.")
     ψ′ .= zero(eltype(ψ′))
     u = mat(gate)
-
+    K = gate.target_gate_dim
     nqubits = ndims(ψ)
     @assert K < nqubits && K > 0 "The gate cannot be applied as it sits outside the qubit space."
 
@@ -118,29 +118,26 @@ function apply!(ψ′, ψ, gate::Localised2SpinAdjGate{G, K}) where {G, K}
     ψ′
 end
 
-@kernel function _apply_2spin!(ψ′, @Const(ψ), @Const(u), val_K::Val{K′}, val_dims::Val{D}) where {K′, D}
+@kernel function _apply_2spin!(ψ′, @Const(ψ), @Const(u), @Const(K), @Const(val_dims::Val{D})) where {D}
     idx = @index(Global, Linear)
 
-    K = UInt32(K′)
-    idx = Int32(idx-Int32(1)) # change to zero based
-    t_one = one(typeof(idx))
-    t_two = t_one << 1 # multiply by two
-
-    pre_index = idx % (one(typeof(idx)) << (K-1))
-    i = (idx >> (K-t_one)) % t_two + t_one
-    j = (idx >> (K)) % t_two + t_one
-    post_index = (idx >> (K+t_one)) << (K+t_one)
+    K = K
+    idx = (idx-(1)) # change to zero based
+    pre_index = idx % (1 << (K-1))
+    i = (idx >> (K-1)) % 2 + 1
+    j = (idx >> (K)) % 2 + 1
+    post_index = (idx >> (K+1)) << (K+1)
 
     psi = zero(eltype(ψ))
-    @inbounds for a in Base.OneTo(t_two)
-        for b in Base.OneTo(t_two)
+    @inbounds for a in Base.OneTo(2)
+        for b in Base.OneTo(2)
             # u is reversed as Julia is column-major unlike row major of numpy
-            acc_idx = pre_index + ((a-t_one) << (K-1)) + ((b-t_one) << K) + post_index + t_one # change to one-based
+            acc_idx = pre_index + ((a-1) << (K-1)) + ((b-1) << K) + post_index + 1 # change to one-based
             
             psi += ψ[acc_idx] * u[i, j, a, b]
         end
     end
-    ψ′[idx+t_one] = psi
+    ψ′[idx+1] = psi
 
     nothing
 end
@@ -148,10 +145,10 @@ end
 workgroup_default_size(::KernelAbstractions.CPU) = 16
 workgroup_default_size(::KernelAbstractions.GPU) = 256
 
-function apply_dev!(temp_gate_cpu_array, device_gate_array, ψ′::AbstractArray{T, N}, ψ::AbstractArray{T, N}, gate::Localised2SpinAdjGate{G, K}) where {T, N, G, K}
+function apply_dev!(temp_gate_cpu_array, device_gate_array, ψ′::AbstractArray{T, N}, ψ::AbstractArray{T, N}, gate::Localised2SpinAdjGate) where {T, N}
     @boundscheck size(ψ′) == size(ψ) || error("ψ′ must be the same size as ψ.")
     ψ′ .= zero(eltype(ψ′))
-
+    K = gate.target_gate_dim
 
     # Send the gate to the device
     if typeof(get_backend(device_gate_array)) <:CPU
@@ -167,17 +164,17 @@ function apply_dev!(temp_gate_cpu_array, device_gate_array, ψ′::AbstractArray
 
     backend = get_backend(ψ′)
     kernel = _apply_2spin!(backend, min(workgroup_default_size(backend), length(ψ)))
-    kernel(ψ′, ψ, device_gate_array, gate.gate_dim_val, Val(N), ndrange=length(ψ))
+    kernel(ψ′, ψ, device_gate_array, gate.target_gate_dim, Val(N), ndrange=length(ψ))
     synchronize(backend)
 
     return ψ′
 end
 
-function _right_apply_gate!(M′, M, gate::Localised2SpinAdjGate{G, K}) where {G, K}
+function _right_apply_gate!(M′, M, gate::Localised2SpinAdjGate)
     # Assuming M′ and M are both 2x2x....x2 tensors with nbits*2 dimensions
     fill!(M′, zero(eltype(M′)))
     u = mat(gate)
-
+    K = gate.target_gate_dim
     nbits = ndims(M) ÷ 2
     X = K + nbits
 
@@ -196,11 +193,12 @@ function _right_apply_gate!(M′, M, gate::Localised2SpinAdjGate{G, K}) where {G
     return M′
 end
 
-function right_apply_gate!(M′::AbstractMatrix, M::AbstractMatrix, gate::Localised2SpinAdjGate{G, K}) where {G, K}
+function right_apply_gate!(M′::AbstractMatrix, M::AbstractMatrix, gate::Localised2SpinAdjGate)
     @boundscheck size(M′) == size(M) || error("M′ must be the same size as M")
     @boundscheck ndims(M) == 2 || error("Must be a matrix")
     @boundscheck size(M, 1) == size(M, 2) || error("Must be a square matrix")
 
+    K = gate.target_gate_dim
 
     nbits = log2(size(M, 1))
     @assert nbits % 1 == 0 "The matrix must have a power of two edge"
