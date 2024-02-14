@@ -77,10 +77,11 @@ function apply(ψ, gates::AbstractArray{<:AbstractGate})
     return ψ′′
 end
 
-function apply!(ψ′, ψ, gate::Localised1SpinGate{G, K}) where {G, K}
+function apply!(ψ′, ψ, gate::Localised1SpinGate)
     @boundscheck size(ψ′) == size(ψ) || error("ψ′ must be the same size as ψ.")
     ψ′ .= zero(eltype(ψ′))
     u = mat(gate)
+    K = gate.target_gate_dim
 
     nqubits = ndims(ψ)
     @assert K <= nqubits && K >= 1 "The gate cannot be applied as it sits outside the qubit space."
