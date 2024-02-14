@@ -138,7 +138,7 @@ end
             psi += ψ[acc_idx] * u[i, j, a, b]
         end
     end
-    ψ′[idx+1] = psi
+    @inbounds ψ′[idx+1] = psi
 
     nothing
 end
