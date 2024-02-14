@@ -84,12 +84,12 @@ psi_flat = flatten(psi);
 
 #println(flatten(psi))
 
-apply!(psi, circuit, normalised=true)
+apply!(psi, circuit, normalised=false)
 #println(psi)
 psi_new = apply(reshape(psi_flat, ntuple(i->2,N)), circuit);
 isapprox(flatten(psi), reshape(psi_new,:), atol=1e-10)
 println(psi)
-
+normalise!(psi)
 energy = measure(H, psi)
 energy_flat = measure(H_mat, psi_new)
 
