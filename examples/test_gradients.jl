@@ -6,13 +6,13 @@ using SparseArrays
 using CUDA
 include("test_brickwork_problem.jl")
 
-nbits = 18;
-nlayers = 12;
+nbits = 8;
+nlayers = 8;
 J = 1.0;
 g = 0.5;
-# H = sparse(build_hamiltonian(nbits, J, g));
+H = sparse(build_hamiltonian(nbits, J, g));
 
-Heff = TFIMHamiltonian(J, g)
+Heff = TFIMHamiltonian(Float64(J), g)
 
 circuit = GenericBrickworkCircuit(nbits, nlayers);
 
@@ -51,7 +51,7 @@ randn!(ψ)
 
 A = similar(H, ComplexF64)
 A .= H
-gate = Localised2SpinAdjGate(build_general_unitary_gate(rand(15)), Val(2))
+gate = Localised2SpinAdjGate(build_general_unitary_gate(rand(15)), 2)
 B = convert_gates_to_matrix(nbits, [gate])
 
 C = A * B
