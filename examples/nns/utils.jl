@@ -51,6 +51,10 @@ function plot_all_energy_trajectories(dfs...; plot_log=false)
         end
     )...)
 
+
+    # Map each row to a list of axes to align them later
+    rows_axes = Dict{Int, Any}()
+
     for (j, df) in enumerate(dfs)
 
         nbits_local_set = Set(sort(unique(df[!, :c_nbits])))
@@ -76,6 +80,11 @@ function plot_all_energy_trajectories(dfs...; plot_log=false)
             ) : Dict{Symbol, Any}()
             ax = Axis(f[i, j], xlabel=L"t", ylabel=L"\langle H \rangle", title=LaTeXString("\$n=$nbits, |\\theta|\\approx 10^{$nparams_log10}\$"); additional_args...)
 
+            if haskey(rows_axes, i)
+                push!(rows_axes[i], ax)
+            else
+                rows_axes[i] = [ax]
+            end
 
             for nlayers in nlayers_local_set
                 trajectories = subset(df,
@@ -110,6 +119,10 @@ function plot_all_energy_trajectories(dfs...; plot_log=false)
     new_colour_scheme = ColorScheme(map(LinRange(min_layers, max_layers, 256)) do nl
         color_scheme[convert_col_to_idx(nl)]
     end)
+
+    for row in keys(rows_axes)
+        linkyaxes!(rows_axes[row]...)
+    end
 
 
     cbar = Colorbar(f[length(nbits_set)+1, 1:length(dfs)], limits=(min_layers, max_layers), ticks=nlayers_set, colormap=new_colour_scheme, vertical=false, label="Layers")

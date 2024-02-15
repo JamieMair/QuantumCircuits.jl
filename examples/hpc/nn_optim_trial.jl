@@ -2,6 +2,8 @@ using Random
 using CUDA
 using Flux
 using Dates
+using LinearAlgebra
+using SparseArrays
 include("../test_brickwork_problem.jl")
 include("../nns/circuit_layer.jl")
 
@@ -41,7 +43,7 @@ function run_trial(config::Dict{Symbol,Any}, trial_id)
     end
 
     H = TFIMHamiltonian(J, g)
-    # H = build_hamiltonian(nbits, J, g)
+    
 
     initial_layers = []
     last_size = 1
@@ -110,13 +112,15 @@ function run_trial(config::Dict{Symbol,Any}, trial_id)
     results[:model_state] = angle_model
     results[:git_sha] = git_sha()
 
-    # H = network.layers[end-1].H
-    # eigen_decomp = eigen(H)
-    # min_energy = minimum(eigen_decomp.values)
-    # ground_state = eigen_decomp.vectors[:, findfirst(x -> x == min_energy, eigen_decomp.values)]
+    if nbits <= 10
+        H = build_hamiltonian(nbits, J, g)
+        eigen_decomp = eigen(H)
+        min_energy = minimum(eigen_decomp.values)
+        ground_state = eigen_decomp.vectors[:, findfirst(x -> x == min_energy, eigen_decomp.values)]
 
-    # results[:ground_energy] = min_energy
-    # results[:ground_state] = ground_state
+        results[:ground_energy] = min_energy
+        results[:ground_state] = ground_state
+    end
 
 
 
