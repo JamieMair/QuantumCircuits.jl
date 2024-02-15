@@ -31,7 +31,7 @@ function apply!(psi::MPS, circuit::GenericBrickworkCircuit; normalised::Bool=fal
     
     gate_idx = 1
     for l in 1:circuit.nlayers
-        for j in (1 + (l-1) % 2):(circuit.nbits-1)
+        """for j in (1 + (l-1) % 2):(circuit.nbits-1)
             angles = view(circuit.gate_angles, :, gate_idx)
             gate = mat(build_general_unitary_gate(angles))
             
@@ -40,7 +40,26 @@ function apply!(psi::MPS, circuit::GenericBrickworkCircuit; normalised::Bool=fal
 
             apply_2site!(psi, gate, j; normalised=normalised)
             gate_idx += 1
+        end"""
+        layer_gates = []
+        for j in (1 + (l-1) % 2):(circuit.nbits-1)
+            angles = view(circuit.gate_angles, :, gate_idx)
+            gate = mat(build_general_unitary_gate(angles))
+            gate = permutedims(gate, (2,1,4,3))
+            gate = reshape(gate, (4,4))
+            new_term = Term(j,gate)
+            push!(layer_gates, new_term)
+            gate_idx += 1
         end
+        if psi.centre <= psi.N/2
+            sort!(layer_gates, by=x->x.index)
+        else
+            sort!(layer_gates, by=x->-x.index)
+        end
+        for term in layer_gates
+            apply_2site!(psi, term.matrix, term.index; normalised=normalised)
+        end
+
     end
 end
 

@@ -64,7 +64,7 @@ println("Matrix:")
 @benchmark measure(H_mat, psi_flat)
 
 
-N = 14
+N = 6
 M = 20
 circuit = GenericBrickworkCircuit(N, M)
 circuit = GenericBrickworkCircuit(N, M, QuantumCircuits.brickwork_num_gates(N, M), 0.01/M*randn(15, circuit.ngates))
@@ -78,8 +78,8 @@ H = Ising(N, 1, 0.1)
 H_mat = convert_to_matrix(H);
 
 psi = MPS(N);
-psi.chiMax = 0
-psi.threshold = 1e-8
+#psi.chiMax = 0
+#psi.threshold = 1e-8
 psi_flat = flatten(psi);
 
 #println(flatten(psi))
