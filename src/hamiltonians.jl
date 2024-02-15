@@ -6,7 +6,7 @@ end
 @kernel function _tfim_measure!(ψ′, @Const(H), @Const(ψ), ::Val{N}) where {N}
     idx = @index(Global, Linear)
     T = UInt32
-    C = T(idx-one(T)) # Get configuration in binary
+    C = T(idx)-one(T) # Get configuration in binary
 
     @inbounds psi = ψ[idx]
 
@@ -64,7 +64,7 @@ function QuantumCircuits.measure!(ψ′::AbstractArray{T, N}, H::TFIMHamiltonian
 
     E = sum(ψ′) # Add up all components
 
-    if imag(E) > 1e-12
+    if imag(E) > 1e-8 * length(ψ)
         @warn "Imaginary energy of $(imag(E)) -> above threshold!"
     end
     # @assert imag(E) < 1e-12 # Make sure that imaginary component is small enough

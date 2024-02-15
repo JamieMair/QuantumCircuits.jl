@@ -20,10 +20,11 @@ end
 function process_results(dfs...)
     results = []
     for df in dfs
-        unpack_cols!(df, :configuration, "c_")
-        unpack_cols!(df, :results, "r_")
+        sub_df = df[df[!, :has_finished], :]
+        unpack_cols!(sub_df, :configuration, "c_")
+        unpack_cols!(sub_df, :results, "r_")
 
-        for _subdf in groupby(df, [:c_architecture, :c_learning_rate])
+        for _subdf in groupby(sub_df, [:c_architecture, :c_learning_rate])
             push!(results, _subdf)
         end
     end
@@ -108,9 +109,13 @@ function plot_all_energy_trajectories(dfs...; plot_log=false)
             end
 
             if :r_ground_energy in propertynames(df)
-                ges = unique(df[df[!, :c_nbits].==nbits, :r_ground_energy])
-                @assert length(ges) == 1 "There should be only one ground energy for a fixed number of qubits."
-                hlines!(ax, ges, label=L"E_0", linestyle=:dash, alpha=0.5, color=:black)
+                ges = unique(skipmissing(df[df[!, :c_nbits].==nbits, :r_ground_energy]))
+                if length(ges) > 0
+                    if length(ges) > 1 
+                        @warn "There should be only one ground energy for a fixed number of qubits, but found $(length(ges)) for $(nbits)."
+                    end
+                    hlines!(ax, ges, label=L"E_0", linestyle=:dash, alpha=0.5, color=:black)
+                end
             end
 
         end
@@ -130,6 +135,68 @@ function plot_all_energy_trajectories(dfs...; plot_log=false)
     return f
 end
 
+
+function count_neurons(df)
+    return length(df.c_architecture[1]) == 0 ? 0 : sum(y -> y.neurons, df.c_architecture[1])
+end
+
+function plot_durations(dfs...; plot_log=false)
+    nbits_set = sort(unique(vcat((unique(df[!, :c_nbits]) for df in dfs)...)))
+
+    f = Figure(size=(400, 400 * length(dfs) + 100))
+
+    nlayers_set = sort(unique(vcat((unique(df[!, :c_nlayers]) for df in dfs)...)))
+    min_layers, max_layers = extrema(vcat(([extrema(df[!, :c_nlayers])...] for df in dfs)...))
+    m = log(256 / 1) / log(max_layers / min_layers)
+    c = log(1) - m * log(min_layers)
+    convert_col_to_idx(nl) = Int(257 - round((1 + sqrt((nl - min_layers) / (max_layers - min_layers)) * 255)))
+    color_scheme = ColorSchemes.matter
+
+    color_map = Dict((
+        map(nlayers_set) do nl
+            index = convert_col_to_idx(nl)
+            # i = max(1, min(256, Int(round(exp(m*log(nl)+c)))))
+            return nl => color_scheme[index]
+        end
+    )...)
+
+    for (j, df) in enumerate(dfs)
+
+        nbits_local_set = Set(sort(unique(df[!, :c_nbits])))
+        nlayers_local_set = reverse(sort(unique(df[!, :c_nlayers])))
+
+        nparams = length(destructure(df[!, :r_model_state][1])[1])
+        nparams_log10 = Int(ceil(log10(nparams)))
+        additional_args = plot_log ? Dict{Symbol, Any}(
+            :xscale => CairoMakie.Makie.pseudolog10,
+            :yscale => CairoMakie.Makie.pseudolog10,
+        ) : Dict{Symbol, Any}()
+        ax = Axis(f[j, 1], xlabel=L"N", ylabel=L"D(s)", title=LaTeXString("\$|\\theta|\\approx 10^{$nparams_log10}\$"); additional_args..., :yscale => log2, :xscale => log2)
+
+        for nlayers in nlayers_local_set
+            nbits_local = sort(collect(nbits_local_set))
+            mean_durations = map(nbits_local) do nbits
+                a = df[(df[!, :c_nbits].==nbits) .&& (df[!, :c_nlayers].==nlayers), :r_duration_s]
+                return mean(a)
+            end
+            error_durations = map(nbits_local) do nbits
+                a = df[(df[!, :c_nbits].==nbits) .&& (df[!, :c_nlayers].==nlayers), :r_duration_s]
+                return std(a) / sqrt(length(a))
+            end
+            c = color_map[nlayers]
+            CairoMakie.errorbars!(ax, nbits_local, mean_durations, error_durations, color=:black)
+            CairoMakie.scatter!(ax, nbits_local, mean_durations, color=c)
+        end
+    end
+    new_colour_scheme = ColorScheme(map(LinRange(min_layers, max_layers, 256)) do nl
+        color_scheme[convert_col_to_idx(nl)]
+    end)
+
+
+    cbar = Colorbar(f[length(dfs)+1, 1], limits=(min_layers, max_layers), ticks=nlayers_set, colormap=new_colour_scheme, vertical=false, label="Layers")
+
+    return f
+end
 
 function plot_trajectories!(ax, trajectories; kwargs...)
     for traj in trajectories
