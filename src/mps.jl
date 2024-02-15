@@ -39,6 +39,14 @@ function measure(H::Hamiltonian, psi::MPS, circuit::GenericBrickworkCircuit)
     return measure(H, psi_copy)
 end
 
+function measure(H::Hamiltonian, circuit::GenericBrickworkCircuit; chiMax::Int=0, threshold::Real=0.0)
+    psi = MPS(H.nbits)
+    psi.chiMax = chiMax
+    psi.threshold = threshold
+    return measure(H, psi, circuit)
+end
+
+
 export apply!
 function apply!(psi::MPS, circuit::GenericBrickworkCircuit; normalised::Bool=false)
     
@@ -85,6 +93,14 @@ function gradient(H::Hamiltonian, psi::MPS, circuit::GenericBrickworkCircuit, ga
     (measure(H, psi, l)-measure(H, psi, r)) / 2
 end
 
+function gradient(H::Hamiltonian, circuit::GenericBrickworkCircuit, gate_index; chiMax::Int=0, threshold::Real=0.0)
+    psi = MPS(H.nbits)
+    psi.chiMax = chiMax
+    psi.threshold = threshold
+    return gradient(H, psi, circuit, gate_index)
+end
+
+
 #export gradients
 function gradients(H::Hamiltonian, psi::MPS, circuit::GenericBrickworkCircuit)
     gs = map(1:length(circuit.gate_angles)) do i
@@ -95,3 +111,11 @@ function gradients(H::Hamiltonian, psi::MPS, circuit::GenericBrickworkCircuit)
 
     return reshape(gs, size(circuit.gate_angles))
 end
+
+function gradients(H::Hamiltonian, circuit::GenericBrickworkCircuit; chiMax::Int=0, threshold::Real=0.0)
+    psi = MPS(H.nbits)
+    psi.chiMax = chiMax
+    psi.threshold = threshold
+    return gradients(H, psi, circuit)
+end
+

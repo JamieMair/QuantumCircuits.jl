@@ -7,7 +7,6 @@ using LinearAlgebra
 
 @testitem "exact energy test" begin
 
-    using QuantumCircuits
     using MatrixProductStates
 
     for N = 2:2:10
@@ -46,6 +45,44 @@ using LinearAlgebra
 end
 
 
+@testitem "exact circuit tests" begin
+
+    using MatrixProductStates
+    
+    for N in 4:10
+        M = 2*N
+
+        # generate random circuit that is close to identity.
+        circuit = GenericBrickworkCircuit(N, M)
+        circuit = GenericBrickworkCircuit(N, M, QuantumCircuits.brickwork_num_gates(N, M), 0.01/M*randn(15, circuit.ngates))
+
+        H = Ising(N, 1, 1.1)  # create Hamiltonian
+        H_mat = convert_to_matrix(H);  # convert to matrix for comparison
+
+        psi = MPS(N);  # MPS of the zero state.
+        psi_flat = flatten(psi);
+
+        apply!(psi, circuit, normalised=false)  # apply using MPS # something is broken with normalise in SVD. Need to fix!
+        psi_new = apply(reshape(psi_flat, ntuple(i->2,N)), circuit);  # apply using Previous method
+
+        @test isapprox(flatten(psi), reshape(psi_new,:), atol=1e-10)  # check states elementwise
+
+        energy = measure(H, psi)
+        energy_flat = measure(H_mat, psi_new)
+        @test isapprox(abs(energy - energy_flat) / abs(energy), 0.0, atol=1e-10)  # check energies
+
+        grads = gradients(H, circuit)
+        grads_flat = gradients(H_mat, reshape(psi_flat, ntuple(i->2,N)), circuit)
+        @test isapprox(grads, grads_flat, atol=1e-6)  # check gradients
+
+        println("Done N = $(N)")
+    end
+
+end
+
+
+
+# A bit of benchmarking!
 
 N = 12
 H = Ising(N, 1, 0.1)
@@ -64,56 +101,49 @@ println("Matrix:")
 @benchmark measure(H_mat, psi_flat)
 
 
-N = 6
-M = 20
+N = 10
+M = 2*N
 circuit = GenericBrickworkCircuit(N, M)
 circuit = GenericBrickworkCircuit(N, M, QuantumCircuits.brickwork_num_gates(N, M), 0.01/M*randn(15, circuit.ngates))
-#circuit.gate_angles = randn(15, circuit.ngates)
 
-#circuit = reconstruct(circuit, 1, π/2)
-#circuit = reconstruct(circuit, 1, randn(1)[1])
-#circuit = reconstruct(circuit, 1, randn(1)[1])
-
-H = Ising(N, 1, 0.1)
+H = Ising(N, 1, 1)
 H_mat = convert_to_matrix(H);
 
 psi = MPS(N);
-psi.chiMax = 0
-#psi.threshold = 1e-8
+psi.chiMax = 0;
+psi.threshold = 1e-8;
 psi_flat = flatten(psi);
 
-#println(flatten(psi))
-
-@time grads = gradients(H, psi, circuit)
-@time grads_flat = gradients(H_mat, reshape(psi_flat, ntuple(i->2,N)), circuit)
-
-isapprox(grads, grads_flat, atol=1e-10)
-
-apply!(psi, circuit, normalised=false)  # something is broken with normalise in SVD. Need to fix!
-#println(psi)
-psi_new = apply(reshape(psi_flat, ntuple(i->2,N)), circuit);
-isapprox(flatten(psi), reshape(psi_new,:), atol=1e-10)
-println(psi)
-normalise!(psi)
-energy = measure(H, psi)
-energy_flat = measure(H_mat, psi_new)
-
-println(abs(energy - energy_flat) / abs(energy))
-
-
-
-
+println("MPS:")
 @benchmark apply!(psi, circuit)
 @benchmark measure(H, psi)
-#normalise!(psi)
 
-#println(flatten(psi))
-
+println("Matrix:")
 @benchmark psi_new = apply(reshape(psi_flat, ntuple(i->2,N)), circuit)
+psi_new = apply(reshape(psi_flat, ntuple(i->2,N)), circuit)
 @benchmark measure(H_mat, psi_new)
 
-psi_new = apply(reshape(psi_flat, ntuple(i->2,N)), circuit);
+println("MPS Gradients:")
+@benchmark grads = gradients(H, psi, circuit)
 
-println(reshape(psi_new,:))
+println("Matrix Gradients:")
+@benchmark grads_flat = gradients(H_mat, reshape(psi_flat, ntuple(i->2,N)), circuit)
 
-isapprox(flatten(psi), reshape(psi_new,:), atol=1e-10)
+# Note that the values will no longer agree because there is approximation involved!
+
+
+
+# large MPS test
+
+N = 100
+M = 2*N
+
+circuit = GenericBrickworkCircuit(N, M)
+circuit = GenericBrickworkCircuit(N, M, QuantumCircuits.brickwork_num_gates(N, M), 0.01/M*randn(15, circuit.ngates))
+
+H = Ising(N, 1, 1)
+
+
+BLAS.set_num_threads(1)  # improves performance on my machine
+@benchmark measure(H, circuit, chiMax=64, threshold=1e-8)  # around 600ms on my windows machine (might vary a lot depending on circuit)
+#@benchmark grads = gradients(H, circuit, chiMax=64, threshold=1e-8)  # will take a long time! on my windows machine
