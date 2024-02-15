@@ -19,7 +19,8 @@ function QuantumCircuits.apply!(ψ′, ψ, circuit::GenericBrickworkCircuit)
     # todo - correct this to use two buffers
     gate_idx = 1
     for l in 1:circuit.nlayers
-        for j in (1 + (l-1) % 2):(circuit.nbits-1)
+        # should only apply gates on every other qubit for brickwall!  Now has many redundant parameters!
+        for j in (1 + (l-1) % 2):2:(circuit.nbits-1)
             angles = view(circuit.gate_angles, :, gate_idx)
             gate = Localised2SpinAdjGate(build_general_unitary_gate(angles), Val(j))
             apply!(ψ′, ψ, gate)

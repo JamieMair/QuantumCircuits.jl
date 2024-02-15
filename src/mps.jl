@@ -2,6 +2,13 @@
 using MatrixProductStates
 using LinearAlgebra
 
+
+#should be added to MatrixProductStates.jl
+function Base.copy(psi::MPS)
+    return MPS(psi.d, psi.N, copy(psi.tensors), psi.centre, psi.chiMax, psi.threshold)
+end
+
+
 export measure
 function measure(H::Hamiltonian, psi::MPS)
     n = length(psi)
@@ -26,12 +33,18 @@ function measure(H::Hamiltonian, psi::MPS)
     return real(energy)  # assumers H is Hermitian!
 end
 
+function measure(H::Hamiltonian, psi::MPS, circuit::GenericBrickworkCircuit)
+    psi_copy = copy(psi)
+    apply!(psi_copy, circuit)
+    return measure(H, psi_copy)
+end
+
 export apply!
 function apply!(psi::MPS, circuit::GenericBrickworkCircuit; normalised::Bool=false)
     
     gate_idx = 1
     for l in 1:circuit.nlayers
-        """for j in (1 + (l-1) % 2):(circuit.nbits-1)
+        """for j in (1 + (l-1) % 2):2:(circuit.nbits-1)
             angles = view(circuit.gate_angles, :, gate_idx)
             gate = mat(build_general_unitary_gate(angles))
             
@@ -42,7 +55,7 @@ function apply!(psi::MPS, circuit::GenericBrickworkCircuit; normalised::Bool=fal
             gate_idx += 1
         end"""
         layer_gates = []
-        for j in (1 + (l-1) % 2):(circuit.nbits-1)
+        for j in (1 + (l-1) % 2):2:(circuit.nbits-1)
             angles = view(circuit.gate_angles, :, gate_idx)
             gate = mat(build_general_unitary_gate(angles))
             gate = permutedims(gate, (2,1,4,3))
@@ -57,39 +70,28 @@ function apply!(psi::MPS, circuit::GenericBrickworkCircuit; normalised::Bool=fal
             sort!(layer_gates, by=x->-x.index)
         end
         for term in layer_gates
+            #println("overlap = $(overlap(psi,psi))")
             apply_2site!(psi, term.matrix, term.index; normalised=normalised)
+            #println("overlap = $(overlap(psi,psi)), site = $(term.index), center = $(psi.centre)")
         end
 
     end
 end
 
-"""export build_general_unitary
-function build_general_unitary(angles::AbstractVector)
+#export gradient
+function gradient(H::Hamiltonian, psi::MPS, circuit::GenericBrickworkCircuit, gate_index)
+    l = reconstruct(circuit, gate_index, π/2)
+    r = reconstruct(circuit, gate_index, -π/2)
+    (measure(H, psi, l)-measure(H, psi, r)) / 2
+end
 
-    # 12 angles used
-    rotation_gates = map(0:3) do i
-        offset = 3*i
-        rotation_gate(angles[offset+1],angles[offset+2], angles[offset+3])
+#export gradients
+function gradients(H::Hamiltonian, psi::MPS, circuit::GenericBrickworkCircuit)
+    gs = map(1:length(circuit.gate_angles)) do i
+        l = reconstruct(circuit, i, π/2)
+        r = reconstruct(circuit, i, -π/2)
+        (measure(H, psi, l)-measure(H, psi, r)) / 2
     end
-    # Remaining 3 angles used
-    theta = angles[13]
-    phi = angles[14]
-    lambda = angles[15]
 
-    l1 = kron(RZGate(T(-π/2)) * rotation_gates[4], rotation_gates[3])
-    l2 = kron(RYGate(phi), RZGate(theta))
-    l3 = kron(RYGate(lambda), IdentityGate())
-    l4 = kron(rotation_gates[2], rotation_gates[1]*RZGate(T(-π/2)))
-
+    return reshape(gs, size(circuit.gate_angles))
 end
-
-
-function rotation_gate(theta, phi, lambda)
-    cos_theta_term = cos(theta / 2)
-    sin_theta_term = sin(theta / 2)
-    phase_1 = exp(im*lambda)
-    phase_2 = exp(im*phi)
-    phase_3 = phase_1 * phase_2
-    return [cos_theta_term -phase_1*sin_theta_term; phase_2*sin_theta_term cos_theta_term * phase_3]
-end
-"""

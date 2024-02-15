@@ -78,13 +78,18 @@ H = Ising(N, 1, 0.1)
 H_mat = convert_to_matrix(H);
 
 psi = MPS(N);
-#psi.chiMax = 0
+psi.chiMax = 0
 #psi.threshold = 1e-8
 psi_flat = flatten(psi);
 
 #println(flatten(psi))
 
-apply!(psi, circuit, normalised=false)
+@time grads = gradients(H, psi, circuit)
+@time grads_flat = gradients(H_mat, reshape(psi_flat, ntuple(i->2,N)), circuit)
+
+isapprox(grads, grads_flat, atol=1e-10)
+
+apply!(psi, circuit, normalised=false)  # something is broken with normalise in SVD. Need to fix!
 #println(psi)
 psi_new = apply(reshape(psi_flat, ntuple(i->2,N)), circuit);
 isapprox(flatten(psi), reshape(psi_new,:), atol=1e-10)
@@ -96,11 +101,13 @@ energy_flat = measure(H_mat, psi_new)
 println(abs(energy - energy_flat) / abs(energy))
 
 
+
+
 @benchmark apply!(psi, circuit)
 @benchmark measure(H, psi)
 #normalise!(psi)
 
-println(flatten(psi))
+#println(flatten(psi))
 
 @benchmark psi_new = apply(reshape(psi_flat, ntuple(i->2,N)), circuit)
 @benchmark measure(H_mat, psi_new)
