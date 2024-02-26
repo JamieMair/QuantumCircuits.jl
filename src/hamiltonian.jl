@@ -66,17 +66,21 @@ function convert_to_matrix(ham::Hamiltonian)
 end
 
 export Ising
-function Ising(nbits, J, h, g=0)
+function Ising(nbits, J, h, g)
     ham = Hamiltonian(nbits)
     X = [0 1; 1 0]
-    XX = kron(X,X)
     Z = [1 0; 0 -1]
+    ZZ = kron(Z,Z)
 
-    for i in 1:nbits-1
-        add!(ham, Term(i, -J * XX))
+    if J != 0
+        for i in 1:nbits-1
+            add!(ham, Term(i, -J * ZZ))
+        end
     end
-    for i in 1:nbits
-        add!(ham, Term(i, h * Z))
+    if h != 0
+        for i in 1:nbits
+            add!(ham, Term(i, h * Z))
+        end
     end
     if g != 0
         for i in 1:nbits
