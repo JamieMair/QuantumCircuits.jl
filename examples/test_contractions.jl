@@ -9,9 +9,9 @@ random_unitary = randn(4,4)
 random_unitary ./= norm(random_unitary)
 
 gates = [
-    Localised1SpinGate(HadamardGate(), Val(1)),
-    Localised2SpinAdjGate(Generic2SpinGate(collect(reshape(random_unitary,2,2,2,2))), Val(2)),
-    Localised1SpinGate(HadamardGate(), Val(4))
+    Localised1SpinGate(HadamardGate(), 1),
+    Localised2SpinAdjGate(Generic2SpinGate(collect(reshape(random_unitary,2,2,2,2))), 2),
+    Localised1SpinGate(HadamardGate(), 4)
 ];
 
 equiv_operator = convert_gates_to_matrix(nbits, gates);
