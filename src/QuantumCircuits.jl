@@ -20,6 +20,9 @@ include("gates.jl")
 ## UTILS
 include("utils.jl")
 
+## APPLY
+include("apply.jl")
+
 ## CIRCUITS
 include("circuits.jl")
 
@@ -28,9 +31,6 @@ include("hamiltonians.jl")
 
 ## GRADIENTS
 include("gradients.jl")
-
-## APPLY
-include("apply.jl")
 
 ## HAMILTONIANS
 include("hamiltonian.jl")
