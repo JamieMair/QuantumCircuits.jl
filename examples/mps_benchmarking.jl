@@ -58,7 +58,7 @@ println("Matrix Gradients:")
 println("No Matrix Gradients:")
 @benchmark gradients($Heff, $ψ, $circuit)
 
-# For (N=10, M=20), the sparse matrix + Heff gradients calculation are around 36x faster on the CPU
+# For (N=10, M=20), the sparse matrix + Heff gradients calculation are around 36x faster than the MPS method
 # Note that the values will no longer agree because there is approximation involved!
 
 # Medium MPS Test
