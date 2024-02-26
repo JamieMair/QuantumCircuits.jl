@@ -11,8 +11,8 @@ const _HadamardGateMat = SMatrix{2, 2, Float64, 4}([1; 1;; 1; -1]' ./ sqrt(2));
 const _XGateMat = SMatrix{2, 2, Float64, 4}([0; 1;;1; 0]');
 const _ZGateMat = SMatrix{2, 2, Float64, 4}([1; 0;;0; -1]');
 const _IGateMat = SMatrix{2, 2, Float64, 4}([1; 0;;0; 1]');
-const _CNOTMat = reshape(SMatrix{4,4, Float64, 16}([1;0;0;0;;0;0;0;1;;0;0;1;0;;0;1;0;0]), 2,2,2,2);
-const _ReverseCNOTMat = reshape(SMatrix{4,4, Float64, 16}([1;0;0;0;;0;1;0;0;;0;0;0;1;;0;0;1;0]), 2,2,2,2);
+const _CNOTMat = SArray{NTuple{4, 2}, Float64, 4, 16}([1;0;;0;0;;;0;0;;0;1;;;;0;0;;1;0;;;0;1;;0;0]);
+const _ReverseCNOTMat = SArray{NTuple{4, 2}, Float64, 4, 16}([1;0;;0;0;;;0;1;;0;0;;;;0;0;;0;1;;;0;0;;1;0]);
 
 struct XGate <: Abstract1SpinGate end
 mat(::XGate) = _XGateMat
@@ -26,6 +26,9 @@ struct CNOTGate <: Abstract2SpinGate end
 mat(::CNOTGate) = _CNOTMat
 struct ReverseCNOTGate <: Abstract2SpinGate end
 mat(::ReverseCNOTGate) = _ReverseCNOTMat
+
+matrix_only_mat(::CNOTGate) = SMatrix{4, 4, Float64, 16}(reshape(_CNOTMat, 4, 4))
+matrix_only_mat(::ReverseCNOTGate) = SMatrix{4, 4, Float64, 16}(reshape(_ReverseCNOTMat, 4, 4))
 
 struct RZGate{T} <: Abstract1SpinGate
     angle::T
@@ -75,10 +78,10 @@ function build_general_unitary_gate(angles::AbstractVector{T}) where {T<:Number}
     @boundscheck length(angles) == 15
 
     # 12 angles used
-    rotation_gates = map(0:3) do i
-        offset = 3*i
-        matrix_only_mat(RotationGate(angles[offset+1],angles[offset+2], angles[offset+3]))
-    end
+    rotation_1 = matrix_only_mat(RotationGate(angles[1],angles[2], angles[3]))
+    rotation_2 = matrix_only_mat(RotationGate(angles[4],angles[5], angles[6]))
+    rotation_3 = matrix_only_mat(RotationGate(angles[7],angles[8], angles[9]))
+    rotation_4 = matrix_only_mat(RotationGate(angles[10],angles[11], angles[12]))
     # Remaining 3 angles used
     theta = angles[13]
     phi = angles[14]
@@ -86,14 +89,19 @@ function build_general_unitary_gate(angles::AbstractVector{T}) where {T<:Number}
 
     # Follows https://arxiv.org/pdf/1906.06343.pdf decomposition
     
-    l1 = kron(matrix_only_mat(RZGate(T(-π/2))) * rotation_gates[4], rotation_gates[3])
+    l1 = kron(matrix_only_mat(RZGate(T(-π/2))) * rotation_4, rotation_3)
     l2 = kron(matrix_only_mat(RYGate(phi)), matrix_only_mat(RZGate(theta)))
     l3 = kron(matrix_only_mat(RYGate(lambda)), matrix_only_mat(IdentityGate()))
-    l4 = kron(rotation_gates[2], rotation_gates[1]*matrix_only_mat(RZGate(T(-π/2))))
+    l4 = kron(rotation_2, rotation_1*matrix_only_mat(RZGate(T(-π/2))))
 
     rcnot = matrix_only_mat(ReverseCNOTGate())
     cnot = matrix_only_mat(CNOTGate())
-    out_gate = l4 * rcnot * l3 * cnot * l2 * rcnot * l1
+
+    out_gate = l4 * rcnot
+    out_gate *= (l3 * cnot)
+    out_gate *= (l2 * rcnot) * l1
+
+    # out_gate = l4 * rcnot * l3 * cnot * l2 * rcnot * l1
     return Generic2SpinGate(reshape(out_gate, (2,2,2,2)))
 end
 
@@ -107,14 +115,14 @@ struct Generic2SpinGate{T, AT<:AbstractArray{T,4}} <: Abstract2SpinGate
 end
 mat(g::Generic2SpinGate) = g.array
 
-struct Localised1SpinGate{G<:Abstract1SpinGate, K} <: Abstract1SpinGate
+struct Localised1SpinGate{G<:Abstract1SpinGate} <: Abstract1SpinGate
     gate::G
-    gate_dim_val::Val{K}
+    target_gate_dim::Int
 end
 mat(l::Localised1SpinGate) = mat(l.gate)
 # NOTE: Acts on spin K and K+1
-struct Localised2SpinAdjGate{G<:Abstract2SpinGate, K} <: Abstract2SpinGate
+struct Localised2SpinAdjGate{G<:Abstract2SpinGate} <: Abstract2SpinGate
     gate::G
-    gate_dim_val::Val{K}
+    target_gate_dim::Int
 end
 mat(l::Localised2SpinAdjGate) = mat(l.gate)

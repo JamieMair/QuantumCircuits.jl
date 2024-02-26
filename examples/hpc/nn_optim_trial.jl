@@ -1,5 +1,9 @@
 using Random
 using CUDA
+using Flux
+using Dates
+using LinearAlgebra
+using SparseArrays
 include("../test_brickwork_problem.jl")
 include("../nns/circuit_layer.jl")
 
@@ -15,7 +19,7 @@ function run_trial(config::Dict{Symbol,Any}, trial_id)
     nbits = config[:nbits]
     nlayers = config[:nlayers]
     J = config[:J]
-    h = config[:h]
+    # h = config[:h]
     g = config[:g]
     lr = config[:learning_rate]
     epochs = config[:epochs]
@@ -34,7 +38,12 @@ function run_trial(config::Dict{Symbol,Any}, trial_id)
     results[:nangles] = nangles
 
     ψ₀ = QuantumCircuits.zero_state_tensor(nbits)
-    H = build_hamiltonian(nbits, J, h, g)
+    if use_gpu
+        ψ₀ = CuArray(ψ₀)
+    end
+
+    H = TFIMHamiltonian(J, g)
+    
 
     initial_layers = []
     last_size = 1
@@ -61,13 +70,14 @@ function run_trial(config::Dict{Symbol,Any}, trial_id)
         return Dense(last_size => neurons, activation; bias=use_bias)
     end
 
+    hamiltonian_layer = HamiltonianLayer(nbits, nlayers, ngates, ψ₀, H, QuantumCircuits.construct_grads_cache(ψ₀))
 
     network = if length(layer_info) == 0
         network = Chain(
             Dense(1 => nangles, identity; bias=false),
             x -> x .* (2π),
             x -> reshape(x, 15, ngates),
-            HamiltonianLayer(nbits, nlayers, ngates, ψ₀, H),
+            hamiltonian_layer,
             E -> sum(E)
         )
         network
@@ -78,14 +88,22 @@ function run_trial(config::Dict{Symbol,Any}, trial_id)
             Dense(last_layer_size => nangles, Flux.σ),
             x -> x .* (2π),
             x -> reshape(x, 15, ngates),
-            HamiltonianLayer(nbits, nlayers, ngates, ψ₀, H),
+            hamiltonian_layer,
             E -> sum(E))
         network
     end
 
     network = use_gpu ? (network |> Flux.gpu) : network
 
+    results[:training_start] = now()
+
     losses = train!(network, epochs; use_gpu, lr=lr)
+
+
+    results[:training_end] = now()
+
+    results[:duration] = results[:training_end]-results[:training_start]
+    results[:duration_s] = round(results[:duration], Dates.Second).value
 
     results[:energy_trajectory] = losses
 
@@ -94,13 +112,15 @@ function run_trial(config::Dict{Symbol,Any}, trial_id)
     results[:model_state] = angle_model
     results[:git_sha] = git_sha()
 
-    H = network.layers[end-1].H
-    eigen_decomp = eigen(H)
-    min_energy = minimum(eigen_decomp.values)
-    ground_state = eigen_decomp.vectors[:, findfirst(x -> x == min_energy, eigen_decomp.values)]
+    if nbits <= 10
+        H = build_hamiltonian(nbits, J, g)
+        eigen_decomp = eigen(H)
+        min_energy = minimum(eigen_decomp.values)
+        ground_state = eigen_decomp.vectors[:, findfirst(x -> x == min_energy, eigen_decomp.values)]
 
-    results[:ground_energy] = min_energy
-    results[:ground_state] = ground_state
+        results[:ground_energy] = min_energy
+        results[:ground_state] = ground_state
+    end
 
 
 
