@@ -102,20 +102,32 @@ end
 
 
 #export gradients
-function gradients(H::Hamiltonian, psi::MPS, circuit::GenericBrickworkCircuit)
+function gradients(H::Hamiltonian, psi::MPS, circuit::GenericBrickworkCircuit; calculate_energy::Bool = false)
     gs = map(1:length(circuit.gate_angles)) do i
         l = reconstruct(circuit, i, π/2)
         r = reconstruct(circuit, i, -π/2)
         (measure(H, psi, l)-measure(H, psi, r)) / 2
     end
 
-    return reshape(gs, size(circuit.gate_angles))
+    grads = reshape(gs, size(circuit.gate_angles))
+    if calculate_energy
+        E = measure(H, psi, circuit)
+        return E, grads
+    else
+        return grads
+    end
 end
 
-function gradients(H::Hamiltonian, circuit::GenericBrickworkCircuit; chiMax::Int=0, threshold::Real=0.0)
+function gradients(H::Hamiltonian, circuit::GenericBrickworkCircuit; chiMax::Int=0, threshold::Real=0.0, calculate_energy::Bool = false)
     psi = MPS(H.nbits)
     psi.chiMax = chiMax
     psi.threshold = threshold
-    return gradients(H, psi, circuit)
+    grads = gradients(H, psi, circuit)
+    if calculate_energy
+        E = measure(H, psi, circuit)
+        return E, grads
+    else
+        return grads
+    end
 end
 
