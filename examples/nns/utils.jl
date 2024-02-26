@@ -93,7 +93,11 @@ function plot_all_energy_trajectories(dfs...; plot_log=false)
                     :c_nlayers => nl -> nl .== nlayers)[!, :r_energy_trajectory]
                 c = color_map[nlayers]
 
+
                 combined_trajs = hcat(trajectories...)
+                if length(combined_trajs) == 0
+                    continue
+                end
                 mean_trajectory = reshape(mean(combined_trajs, dims=2), :)
                 err_trajectory = reshape(std(combined_trajs, dims=2), :)
                 epochs = 0:(length(mean_trajectory)-1)
@@ -143,7 +147,7 @@ end
 function plot_durations(dfs...; plot_log=false)
     nbits_set = sort(unique(vcat((unique(df[!, :c_nbits]) for df in dfs)...)))
 
-    f = Figure(size=(400, 400 * length(dfs) + 100))
+    f = Figure(size=(400 * length(dfs), 400  + 100))
 
     nlayers_set = sort(unique(vcat((unique(df[!, :c_nlayers]) for df in dfs)...)))
     min_layers, max_layers = extrema(vcat(([extrema(df[!, :c_nlayers])...] for df in dfs)...))
@@ -160,6 +164,10 @@ function plot_durations(dfs...; plot_log=false)
         end
     )...)
 
+    # Map each row to a list of axes to align them later
+    rows_axes = Dict{Int, Any}()
+
+
     for (j, df) in enumerate(dfs)
 
         nbits_local_set = Set(sort(unique(df[!, :c_nbits])))
@@ -171,18 +179,36 @@ function plot_durations(dfs...; plot_log=false)
             :xscale => CairoMakie.Makie.pseudolog10,
             :yscale => CairoMakie.Makie.pseudolog10,
         ) : Dict{Symbol, Any}()
-        ax = Axis(f[j, 1], xlabel=L"N", ylabel=L"D(s)", title=LaTeXString("\$|\\theta|\\approx 10^{$nparams_log10}\$"); additional_args..., :yscale => log2, :xscale => log2)
+        ax = Axis(f[1, j], xlabel=L"N", ylabel=L"D(s)", title=LaTeXString("\$|\\theta|\\approx 10^{$nparams_log10}\$"); additional_args..., :yscale => log2, :xscale => log2)
+        
+        if haskey(rows_axes, j)
+            push!(rows_axes[j], ax)
+        else
+            rows_axes[j] = [ax]
+        end
 
         for nlayers in nlayers_local_set
             nbits_local = sort(collect(nbits_local_set))
             mean_durations = map(nbits_local) do nbits
                 a = df[(df[!, :c_nbits].==nbits) .&& (df[!, :c_nlayers].==nlayers), :r_duration_s]
+                if length(a) == 0
+                    return missing
+                end
                 return mean(a)
             end
             error_durations = map(nbits_local) do nbits
                 a = df[(df[!, :c_nbits].==nbits) .&& (df[!, :c_nlayers].==nlayers), :r_duration_s]
+                if length(a) == 0
+                    return missing
+                end
                 return std(a) / sqrt(length(a))
             end
+
+            mask = (!ismissing).(mean_durations)
+            nbits_local = nbits_local[mask]
+            mean_durations = mean_durations[mask]
+            error_durations = error_durations[mask]
+
             c = color_map[nlayers]
             CairoMakie.errorbars!(ax, nbits_local, mean_durations, error_durations, color=:black)
             CairoMakie.scatter!(ax, nbits_local, mean_durations, color=c)
@@ -192,8 +218,11 @@ function plot_durations(dfs...; plot_log=false)
         color_scheme[convert_col_to_idx(nl)]
     end)
 
-
-    cbar = Colorbar(f[length(dfs)+1, 1], limits=(min_layers, max_layers), ticks=nlayers_set, colormap=new_colour_scheme, vertical=false, label="Layers")
+    for row in keys(rows_axes)
+        linkyaxes!(rows_axes[row]...)
+    end
+    
+    cbar = Colorbar(f[2, 1:length(dfs)], limits=(min_layers, max_layers), ticks=nlayers_set, colormap=new_colour_scheme, vertical=false, label="Layers")
 
     return f
 end
