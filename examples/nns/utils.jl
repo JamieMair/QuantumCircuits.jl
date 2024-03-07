@@ -17,12 +17,20 @@ function unpack_cols!(df, col_name, prepend="")
     end
 end
 
-function process_results(dfs...)
+function unpack_results(dfs...)
     results = []
     for df in dfs
         sub_df = df[df[!, :has_finished], :]
         unpack_cols!(sub_df, :configuration, "c_")
         unpack_cols!(sub_df, :results, "r_")
+
+        if !hasproperty(sub_df, :r_ground_state)
+            sub_df[!, :r_ground_state] = [missing for _ in 1:length(sub_df.id)]
+        end
+        if !hasproperty(sub_df, :r_ground_energy)
+            sub_df[!, :r_ground_energy] = [missing for _ in 1:length(sub_df.id)]
+        end
+
 
         for _subdf in groupby(sub_df, [:c_architecture, :c_learning_rate])
             push!(results, _subdf)
@@ -30,6 +38,20 @@ function process_results(dfs...)
     end
 
     return [results...]
+end
+function process_results(dfs...)
+    # Sort the dataframes by the number of neurons
+    df_to_neuron_count(df) = length(df.c_architecture[1]) == 0 ? 0 : sum(y -> y.neurons, df.c_architecture[1])
+    results = sort(unpack_results(dfs...), by=df_to_neuron_count)
+
+    # Combine same architectures
+    architectures = sort(unique([df.c_architecture[1] for df in results]), by=x->sum(y->y.neurons, x, init=0))
+    result_groups = [[df for df in results if df.c_architecture[1] == c] for c in architectures]
+    results = [vcat(rs...) for rs in result_groups]
+
+    # Final sort to make sure
+    results = sort(results, by=df_to_neuron_count)
+    return results
 end
 
 function plot_all_energy_trajectories(dfs...; plot_log=false)
