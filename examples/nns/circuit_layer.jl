@@ -4,12 +4,13 @@ using Flux
 using ProgressBars
 using CUDA
 
-struct HamiltonianLayer{T,A<:AbstractArray}
+struct HamiltonianLayer{CT,TH,A<:AbstractArray}
     nbits::Int
     nlayers::Int
     ngates::Int
     ψ₀::A
-    H::Matrix{T}
+    H::TH
+    cache::CT
 end
 
 function (hl::HamiltonianLayer)(gate_angles::AbstractArray)
@@ -20,7 +21,6 @@ function apply_hamiltonian(hl::HamiltonianLayer, gate_angles::AbstractArray)
     @boundscheck size(gate_angles) == (15, hl.ngates)
 
     circuit = GenericBrickworkCircuit(hl.nbits, hl.nlayers, hl.ngates, gate_angles)
-    
     E = QuantumCircuits.measure(hl.H, hl.ψ₀, circuit);
     return E
 end
@@ -29,13 +29,12 @@ function apply_hamiltonian(hl::HamiltonianLayer, gate_angles::CuArray)
 end
 
 function ChainRulesCore.rrule(::typeof(apply_hamiltonian), hl::HamiltonianLayer, gate_angles::CuArray)
-    angles_cpu = Array(gate_angles)
-    E = apply_hamiltonian(hl, angles_cpu)
+    E, gradients = QuantumCircuits.gradients!(hl.cache..., hl.H, hl.ψ₀, GenericBrickworkCircuit(hl.nbits, hl.nlayers, hl.ngates, Array(gate_angles)))
     function pb(dE)
         gs = if dE == 1
-            ChainRulesCore.@thunk(Flux.gpu(QuantumCircuits.gradients(hl.H, hl.ψ₀, GenericBrickworkCircuit(hl.nbits, hl.nlayers, hl.ngates, angles_cpu))))
+            ChainRulesCore.@thunk(Flux.gpu(gradients))
         else
-            ChainRulesCore.@thunk(Flux.gpu(Array(dE) .* QuantumCircuits.gradients(hl.H, hl.ψ₀, GenericBrickworkCircuit(hl.nbits, hl.nlayers, hl.ngates, angles_cpu))))
+            ChainRulesCore.@thunk(dE .* Flux.gpu(gradients))
         end
 
         return NoTangent(), NoTangent(), gs
@@ -44,12 +43,12 @@ function ChainRulesCore.rrule(::typeof(apply_hamiltonian), hl::HamiltonianLayer,
 end
 
 function ChainRulesCore.rrule(::typeof(apply_hamiltonian), hl::HamiltonianLayer, gate_angles::AbstractArray)
-    E = apply_hamiltonian(hl, gate_angles)
+    E, gradients = QuantumCircuits.gradients!(hl.cache..., hl.H, hl.ψ₀, GenericBrickworkCircuit(hl.nbits, hl.nlayers, hl.ngates, gate_angles))
     function pb(dE)
         gs = if dE == 1
-            ChainRulesCore.@thunk(QuantumCircuits.gradients(hl.H, hl.ψ₀, GenericBrickworkCircuit(hl.nbits, hl.nlayers, hl.ngates, gate_angles)))
+            ChainRulesCore.@thunk(gradients)
         else
-            ChainRulesCore.@thunk(dE .* QuantumCircuits.gradients(hl.H, hl.ψ₀, GenericBrickworkCircuit(hl.nbits, hl.nlayers, hl.ngates, gate_angles)))
+            ChainRulesCore.@thunk(dE .* gradients)
         end
 
         return NoTangent(), NoTangent(), gs

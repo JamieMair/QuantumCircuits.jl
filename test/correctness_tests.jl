@@ -6,12 +6,12 @@ using TestItems
     for nbits in (4, 5, 7)
         ψ = zero_state_tensor(nbits)
         ψ′ = copy(ψ)
-        hadamard = Localised1SpinGate(HadamardGate(), Val(1))
+        hadamard = Localised1SpinGate(HadamardGate(), 1)
         apply!(ψ′, ψ, hadamard)
         (ψ, ψ′) = (ψ′, ψ)
 
         for i in 1:(nbits-1)
-            cnot = Localised2SpinAdjGate(CNOTGate(), Val(i))
+            cnot = Localised2SpinAdjGate(CNOTGate(), i)
             apply!(ψ′, ψ, cnot)
             (ψ, ψ′) = (ψ′, ψ)
         end
@@ -32,11 +32,11 @@ end
     
     for nbits in (4, 5, 7)
         ψ = zero_state_vec(nbits)
-        hadamard = Localised1SpinGate(HadamardGate(), Val(1))
+        hadamard = Localised1SpinGate(HadamardGate(), 1)
 
         ψ = convert_gates_to_matrix(nbits, QuantumCircuits.AbstractGate[hadamard]) * ψ;
         for i in 1:(nbits-1)
-            cnot = Localised2SpinAdjGate(CNOTGate(), Val(i))
+            cnot = Localised2SpinAdjGate(CNOTGate(), i)
             ψ = convert_gates_to_matrix(nbits, QuantumCircuits.AbstractGate[cnot]) * ψ;
         end
 
@@ -71,7 +71,7 @@ end
 
     
     gates = map(1:nbits) do i
-        Localised1SpinGate(Generic1SpinGate(generate_random_unitary()), Val(i))
+        Localised1SpinGate(Generic1SpinGate(generate_random_unitary()), i)
     end
 
     ψ_vec = reshape(ψ, :, 1)
@@ -107,7 +107,7 @@ end
         start_index = 1 + (layer - 1) % 2
         end_index = (nbits-1)
         gates = map(start_index:2:end_index) do i
-            Localised2SpinAdjGate(Generic2SpinGate(generate_random_2spin_gate_mat()), Val(i))
+            Localised2SpinAdjGate(Generic2SpinGate(generate_random_2spin_gate_mat()), i)
         end
 
         ψ_vec = reshape(ψ, :, 1)
