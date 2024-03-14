@@ -80,13 +80,13 @@ function construct_grads_cache(ψ)
     return (cache, ψ′, ψ′′, ψ)
 end
 
-function gradients(H, ψ, circuit::GenericBrickworkCircuit)
+function gradients(H, ψ, circuit::GenericBrickworkCircuit; kwargs...)
     cache_args = construct_grads_cache(ψ)
-    return gradients!(cache_args..., H,ψ, circuit)
+    return gradients!(cache_args..., H,ψ, circuit; kwargs...)
 end
 
-function gradients!(cache, ψ′, ψ′′, ψ, H, ψ₀, circuit::GenericBrickworkCircuit)
-    gradients = similar(circuit.gate_angles)
+function gradients!(cache, ψ′, ψ′′, ψ, H, ψ₀, circuit::GenericBrickworkCircuit; calculate_energy::Bool = false)
+    grads = similar(circuit.gate_angles)
     ψ .= ψ₀ # Set initial state
     # Complete a pass through the circuit
     gate_idx = 1
@@ -101,7 +101,7 @@ function gradients!(cache, ψ′, ψ′′, ψ, H, ψ₀, circuit::GenericBrickw
     end
 
     # Measure the energy
-    E = measure!(ψ′, H, ψ)
+    E = calculate_energy ? measure!(ψ′, H, ψ) : nothing
     
     gate_idx = size(circuit.gate_angles, 2) # set to last gate
     for l in circuit.nlayers:-1:1
@@ -132,7 +132,7 @@ function gradients!(cache, ψ′, ψ′′, ψ, H, ψ₀, circuit::GenericBrickw
                 E_minus = measure!(ψ′, H, ψ)
                 
                 # Calculate gradient using formula
-                gradients[k, gate_idx] = (E_plus - E_minus) / 2
+                grads[k, gate_idx] = (E_plus - E_minus) / 2
 
                 # Reset for next angle
                 ψ .= ψ′′
@@ -144,5 +144,9 @@ function gradients!(cache, ψ′, ψ′′, ψ, H, ψ₀, circuit::GenericBrickw
         end
     end
 
-    return E, gradients
+    if calculate_energy
+        return E, grads
+    else
+        return grads
+    end
 end

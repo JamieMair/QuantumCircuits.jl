@@ -27,9 +27,9 @@ Base.copy(ham::Hamiltonian) = Hamiltonian(ham.nbits, copy(ham.termList))
 
 
 function add!(ham::Hamiltonian, term::Term)
-    if size(term.matrix) == (2,2)
+    if size(term.matrix) == (2, 2)
         term.index <= ham.nbits || throw(ArgumentError("Single site operator index out of range"))
-    elseif size(term.matrix) == (4,4)
+    elseif size(term.matrix) == (4, 4)
         term.index <= ham.nbits - 1 || throw(ArgumentError("Two site operator index out of range"))
     else
         throw(ArgumentError("Invalid matrix size for term"))
@@ -50,15 +50,15 @@ function convert_to_matrix(ham::Hamiltonian)
     H_mat = zeros(2^ham.nbits, 2^ham.nbits)
 
     for term in ham.termList
-        if size(term.matrix) == (2,2)
-            mat = Matrix(I,2^(ham.nbits-term.index),2^(ham.nbits-term.index))
+        if size(term.matrix) == (2, 2)
+            mat = Matrix(I, 2^(ham.nbits - term.index), 2^(ham.nbits - term.index))
             mat = kron(term.matrix, mat)
-            mat = kron(Matrix(I,2^(term.index-1),2^(term.index-1)), mat)
+            mat = kron(Matrix(I, 2^(term.index - 1), 2^(term.index - 1)), mat)
             H_mat += mat
-        elseif size(term.matrix) == (4,4)
-            mat = Matrix(I,2^(ham.nbits-term.index-1),2^(ham.nbits-term.index-1))
+        elseif size(term.matrix) == (4, 4)
+            mat = Matrix(I, 2^(ham.nbits - term.index - 1), 2^(ham.nbits - term.index - 1))
             mat = kron(term.matrix, mat)
-            mat = kron(Matrix(I,2^(term.index-1),2^(term.index-1)), mat)
+            mat = kron(Matrix(I, 2^(term.index - 1), 2^(term.index - 1)), mat)
             H_mat += mat
         end
     end
@@ -66,17 +66,21 @@ function convert_to_matrix(ham::Hamiltonian)
 end
 
 export Ising
-function Ising(nbits, J, h, g=0)
+function Ising(nbits, J, h, g)
     ham = Hamiltonian(nbits)
     X = [0 1; 1 0]
-    XX = kron(X,X)
     Z = [1 0; 0 -1]
+    ZZ = kron(Z, Z)
 
-    for i in 1:nbits-1
-        add!(ham, Term(i, -J * XX))
+    if J != 0
+        for i in 1:nbits-1
+            add!(ham, Term(i, -J * ZZ))
+        end
     end
-    for i in 1:nbits
-        add!(ham, Term(i, h * Z))
+    if h != 0
+        for i in 1:nbits
+            add!(ham, Term(i, h * Z))
+        end
     end
     if g != 0
         for i in 1:nbits
