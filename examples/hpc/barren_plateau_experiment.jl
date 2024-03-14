@@ -20,4 +20,6 @@ experiment = Experiment(
     configuration = deepcopy(config)
 )
 
+Experimenter.Cluster.init()
+
 @execute experiment db DistributedMode

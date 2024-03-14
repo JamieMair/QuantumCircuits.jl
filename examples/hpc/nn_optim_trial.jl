@@ -42,7 +42,7 @@ function run_trial(config::Dict{Symbol,Any}, trial_id)
         ψ₀ = CuArray(ψ₀)
     end
 
-    H = TFIMHamiltonian(J, g)
+    H = TFIMHamiltonian(J, h, g)
     
 
     initial_layers = []
