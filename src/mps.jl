@@ -9,7 +9,7 @@ function Base.copy(psi::MPS)
 end
 
 export measure
-function measure(H::Hamiltonian, psi::MPS)
+function measure(H::MPSHamiltonian, psi::MPS)
     n = length(psi)
     n == H.nbits || throw(ArgumentError("State and Hamiltonian have different numbers of qubits"))
 
@@ -32,13 +32,13 @@ function measure(H::Hamiltonian, psi::MPS)
     return real(energy)  # assumers H is Hermitian!
 end
 
-function measure(H::Hamiltonian, psi::MPS, circuit::GenericBrickworkCircuit)
+function measure(H::MPSHamiltonian, psi::MPS, circuit::GenericBrickworkCircuit)
     psi_copy = copy(psi)
     apply!(psi_copy, circuit)
     return measure(H, psi_copy)
 end
 
-function measure(H::Hamiltonian, circuit::GenericBrickworkCircuit; chiMax::Int=0, threshold::Real=0.0)
+function measure(H::MPSHamiltonian, circuit::GenericBrickworkCircuit; chiMax::Int=0, threshold::Real=0.0)
     psi = MPS(H.nbits)
     psi.chiMax = chiMax
     psi.threshold = threshold
@@ -56,7 +56,7 @@ function apply!(psi::MPS, circuit::GenericBrickworkCircuit; normalised::Bool=fal
             gate = mat(build_general_unitary_gate(angles))
             gate = permutedims(gate, (2, 1, 4, 3))
             gate = reshape(gate, (4, 4))
-            new_term = Term(j, gate)
+            new_term = MPSTerm(j, gate)
             push!(layer_gates, new_term)
             gate_idx += 1
         end
@@ -75,20 +75,20 @@ function apply!(psi::MPS, circuit::GenericBrickworkCircuit; normalised::Bool=fal
     end
 end
 
-function gradient(H::Hamiltonian, psi::MPS, circuit::GenericBrickworkCircuit, gate_index)
+function gradient(H::MPSHamiltonian, psi::MPS, circuit::GenericBrickworkCircuit, gate_index)
     l = reconstruct(circuit, gate_index, π / 2)
     r = reconstruct(circuit, gate_index, -π / 2)
     (measure(H, psi, l) - measure(H, psi, r)) / 2
 end
 
-function gradient(H::Hamiltonian, circuit::GenericBrickworkCircuit, gate_index; chiMax::Int=0, threshold::Real=0.0)
+function gradient(H::MPSHamiltonian, circuit::GenericBrickworkCircuit, gate_index; chiMax::Int=0, threshold::Real=0.0)
     psi = MPS(H.nbits)
     psi.chiMax = chiMax
     psi.threshold = threshold
     return gradient(H, psi, circuit, gate_index)
 end
 
-function gradients(H::Hamiltonian, psi::MPS, circuit::GenericBrickworkCircuit; calculate_energy::Bool=false)
+function gradients(H::MPSHamiltonian, psi::MPS, circuit::GenericBrickworkCircuit; calculate_energy::Bool=false)
     gs = map(1:length(circuit.gate_angles)) do i
         l = reconstruct(circuit, i, π / 2)
         r = reconstruct(circuit, i, -π / 2)
@@ -104,7 +104,7 @@ function gradients(H::Hamiltonian, psi::MPS, circuit::GenericBrickworkCircuit; c
     end
 end
 
-function gradients(H::Hamiltonian, circuit::GenericBrickworkCircuit; chiMax::Int=0, threshold::Real=0.0, calculate_energy::Bool=false)
+function gradients(H::MPSHamiltonian, circuit::GenericBrickworkCircuit; chiMax::Int=0, threshold::Real=0.0, calculate_energy::Bool=false)
     psi = MPS(H.nbits)
     psi.chiMax = chiMax
     psi.threshold = threshold

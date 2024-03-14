@@ -13,6 +13,8 @@ export convert_gates_to_matrix
 export zero_state_vec, zero_state_tensor
 export build_general_unitary_gate
 export GenericBrickworkCircuit, reconstruct, measure, gradient, gradients, optimise!
+export TFIMHamiltonian, measure!
+export MPSHamiltonian, add!, MPSTFIMHamiltonian, convert_to_matrix
 
 ## GATES
 include("gates.jl")
@@ -31,9 +33,6 @@ include("hamiltonians.jl")
 
 ## GRADIENTS
 include("gradients.jl")
-
-## HAMILTONIANS
-include("hamiltonian.jl")
 
 ## MATRIX PRODUCT STATES
 include("mps.jl")
