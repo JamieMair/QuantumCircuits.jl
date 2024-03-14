@@ -10,10 +10,10 @@ include("test_brickwork_problem.jl")
 nbits = 8;
 nlayers = 4;
 J = 1.0;
+h = 0.1;
 g = 0.5;
-H = sparse(build_hamiltonian(nbits, J, g));
-
-Heff = TFIMHamiltonian(Float64(J), g)
+H = sparse(build_hamiltonian(nbits, J, h, g));
+Heff = TFIMHamiltonian(J, h, g);
 
 circuit = GenericBrickworkCircuit(nbits, nlayers);
 

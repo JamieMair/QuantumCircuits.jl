@@ -9,8 +9,9 @@ using CUDA
 nbits = 14;
 nlayers = 4;
 J = 1.0;
+h = 0.2;
 g = 0.5;
-H = TFIMHamiltonian(J, g);
+H = TFIMHamiltonian(J, h, g);
 
 circuit = GenericBrickworkCircuit(nbits, nlayers);
 

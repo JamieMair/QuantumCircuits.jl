@@ -3,7 +3,7 @@ A struct containing the parameters of the Transverse Field Ising Model.
 
 The form of H represented by this struct is
 ```math
-\\mathcal{H} = -J \\left ( \\sum_{\\langle i,j\\rangle} \\sigma_z^{(i)}\\sigma_z^{(j)} + g \\sum_i \\sigma_z^{(i)} + h \\sum_i \\sigma_x^{(i)} \\right ).
+\\mathcal{H} = -J \\left ( \\sum_{\\langle i,j\\rangle} \\sigma_z^{(i)}\\sigma_z^{(j)} + g \\sum_i \\sigma_x^{(i)} + h \\sum_i \\sigma_z^{(i)} \\right ).
 ```
 """
 struct TFIMHamiltonian{T}
@@ -29,8 +29,9 @@ end
         zz -= (r == 0b01) || (r == 0b10)
     end
 
+    psi2 = abs2(psi)
     # Nearest neighbour contribution
-    nn_contribution = zz * abs2(psi)
+    nn_contribution = zz * psi2
 
     # Loop over bits to calculate x term
     x = zero(eltype(ψ))
@@ -43,10 +44,10 @@ end
 
     # Find the number of spin up and spin down
     n_ones = count_ones(C)
-    z_contribution = (2n_ones - N)
+    z_contribution = (N - 2n_ones) * psi2
 
 
-    @inbounds ψ′[idx] = -H.J * (H.h * tf_contribution + H.g * z_contribution + nn_contribution)
+    @inbounds ψ′[idx] = (-H.J) * (H.g * tf_contribution + H.h * z_contribution + nn_contribution)
     nothing
 end
 
