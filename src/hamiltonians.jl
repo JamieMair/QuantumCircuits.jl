@@ -160,7 +160,7 @@ function MPSTFIMHamiltonian(nbits, J, h, g)
     end
     if g != 0
         for i in 1:nbits
-            add!(ham, MPSTerm(i, (-J * h) * X))
+            add!(ham, MPSTerm(i, (-J * g) * X))
         end
     end
     if h != 0
