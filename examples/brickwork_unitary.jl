@@ -1,14 +1,15 @@
 using Revise
 using QuantumCircuits
-include("test_brickwork_problem.jl")
+include("matrix_tfim.jl")
 
 
 nbits = 12;
 nlayers = 8;
 J = 1.0;
+h = 0.2;
 g = 0.5;
-H = TFIMHamiltonian(J, g);
-H_matrix = build_hamiltonian(nbits, J, g);
+H = TFIMHamiltonian(J, h, g);
+H_matrix = build_hamiltonian(nbits, J, h, g);
 
 circuit = GenericBrickworkCircuit(nbits, nlayers);
 nrepeats = 3

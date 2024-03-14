@@ -4,7 +4,7 @@ using Flux
 using Dates
 using LinearAlgebra
 using SparseArrays
-include("../test_brickwork_problem.jl")
+include("../matrix_tfim.jl")
 include("../nns/circuit_layer.jl")
 
 function git_sha()
@@ -19,7 +19,7 @@ function run_trial(config::Dict{Symbol,Any}, trial_id)
     nbits = config[:nbits]
     nlayers = config[:nlayers]
     J = config[:J]
-    # h = config[:h]
+    h = config[:h]
     g = config[:g]
     lr = config[:learning_rate]
     epochs = config[:epochs]
@@ -113,7 +113,7 @@ function run_trial(config::Dict{Symbol,Any}, trial_id)
     results[:git_sha] = git_sha()
 
     if nbits <= 10
-        H = build_hamiltonian(nbits, J, g)
+        H = build_hamiltonian(nbits, J, h, g)
         eigen_decomp = eigen(H)
         min_energy = minimum(eigen_decomp.values)
         ground_state = eigen_decomp.vectors[:, findfirst(x -> x == min_energy, eigen_decomp.values)]
