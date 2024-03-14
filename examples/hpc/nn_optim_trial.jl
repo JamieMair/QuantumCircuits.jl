@@ -4,7 +4,7 @@ using Flux
 using Dates
 using LinearAlgebra
 using SparseArrays
-include("../test_brickwork_problem.jl")
+include("../matrix_tfim.jl")
 include("../nns/circuit_layer.jl")
 
 function git_sha()

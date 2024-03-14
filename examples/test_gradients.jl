@@ -5,7 +5,7 @@ using LinearAlgebra
 using SparseArrays
 using CUDA
 using QuantumCircuits
-include("test_brickwork_problem.jl")
+include("matrix_tfim.jl")
 
 nbits = 8;
 nlayers = 4;

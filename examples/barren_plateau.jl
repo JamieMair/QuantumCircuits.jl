@@ -3,7 +3,7 @@ using ProgressBars;
 using Statistics;
 using CairoMakie;
 using LaTeXStrings;
-include("test_brickwork_problem.jl")
+include("matrix_tfim.jl")
 
 function gate_gradient(nbits, nlayers, H, ψ₀, index=1)
     circuit = GenericBrickworkCircuit(nbits, nlayers)
