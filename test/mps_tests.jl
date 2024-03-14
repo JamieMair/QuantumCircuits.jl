@@ -5,7 +5,7 @@ using TestItems
     using MatrixProductStates
 
     for N = 2:2:10
-        H = Ising(N, 1, 0, 0.1)
+        H = MPSTFIMHamiltonian(N, 1, 0, 0.1)
         H_mat = convert_to_matrix(H);
 
         psi = MPS(N)
@@ -51,7 +51,7 @@ end
         circuit = GenericBrickworkCircuit(N, M)
         circuit = GenericBrickworkCircuit(N, M, QuantumCircuits.brickwork_num_gates(N, M), 0.01/M*randn(15, circuit.ngates))
 
-        H = Ising(N, 1, 0, 1.1)  # create Hamiltonian
+        H = MPSTFIMHamiltonian(N, 1, 0, 1.1)  # create Hamiltonian
         H_mat = convert_to_matrix(H);  # convert to matrix for comparison
 
         psi = MPS(N);  # MPS of the zero state.

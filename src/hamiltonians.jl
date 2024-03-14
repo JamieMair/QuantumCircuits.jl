@@ -158,15 +158,16 @@ function MPSTFIMHamiltonian(nbits, J, h, g)
             add!(ham, MPSTerm(i, -J * ZZ))
         end
     end
-    if h != 0
-        for i in 1:nbits
-            add!(ham, MPSTerm(i, h * Z))
-        end
-    end
     if g != 0
         for i in 1:nbits
-            add!(ham, MPSTerm(i, g * X))
+            add!(ham, MPSTerm(i, (-J * h) * X))
         end
     end
+    if h != 0
+        for i in 1:nbits
+            add!(ham, MPSTerm(i, (-J * h) * Z))
+        end
+    end
+
     return ham
 end
