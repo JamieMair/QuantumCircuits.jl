@@ -26,12 +26,11 @@ if !isdir("hpc/scripts")
             #SBATCH -o hpc/output/test_%j.out
 
             module purge
-            module load cuda/11.7
-            module load julia/1.9.4
+            module load julia/1.10.2
 
             wd=$(pwd)
             run_file="$wd/hpc/test.jl"
-            julia --project hpc/setup_processes.jl --working_dir $wd --run_file "$run_file"
+            julia --project $run_file
 
             rm julia-*-*-*.out
             """)
