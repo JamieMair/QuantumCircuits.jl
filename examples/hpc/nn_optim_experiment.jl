@@ -11,6 +11,7 @@ config = Dict{Symbol,Any}(
     :J => 1.0,
     :h => 0.9045,
     :g => 1.4,
+    :weight_init_magnitude => 0.01f0,
     :learning_rate => IterableVariable([0.0002]),
     :use_gpu => true,
     :architecture => IterableVariable([

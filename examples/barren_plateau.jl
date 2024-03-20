@@ -44,25 +44,32 @@ function layer_plot_title(hps)
     return "TFIM " * join(("$(k)=$(v)" for (k,v) in pairs(hps)), ", ")
 end
 
-function plot_var_grads_vs_layers(nbits, nlayers, hamiltonian_params, results)
+function plot_var_grads_vs_layers(nbits, nlayers, hamiltonian_params, results; fig=nothing, kwargs...)
     # Convert to arrays
     nbits = typeof(nbits) <: Number ? [nbits] : nbits
     nlayers = typeof(nlayers) <: Number ? [nlayers] : nlayers
 
-    f = Figure()
-    ax = Axis(f[1,1],
-        title=layer_plot_title(hamiltonian_params),
-        xlabel="# layers",
-        ylabel=L"\text{var}\left ([\nabla E]_1 \right )",
-        yscale=log10)
+    f, ax = if isnothing(fig)
+        f = Figure()
+        ax = Axis(f[1,1],
+            title=layer_plot_title(hamiltonian_params),
+            xlabel="# layers",
+            ylabel=L"\text{var}\left ([\nabla E]_1 \right )",
+            yscale=log10)
+        f, ax
+    else
+        fig, fig[1,1]
+    end
 
     for (i, nb) in enumerate(nbits)
         layer_grads = view(results, :, i, :)
         var_grads = reshape(var(layer_grads, dims=1), :)
-        scatter!(ax, nlayers, var_grads, label="n=$(nb)")
+        scatter!(ax, nlayers, var_grads ./ nlayers, label="n=$(nb)"; kwargs...)
     end
 
-    f[1,2] = Legend(f, ax, "# Sites", framevisible=false)
+    if isnothing(fig)
+        f[1,2] = Legend(f, ax, "# Sites", framevisible=false)
+    end
 
     return f
 end
@@ -85,12 +92,13 @@ using Experimenter
 import Serialization
 using DataFrames
 using SQLite
-db_path = joinpath(@__DIR__, "hpc/results/hpc_experiments.db");
+db_path = joinpath(@__DIR__, "hpc/results/experiments.db");
 file_name = splitpath(db_path)[end];
 db = open_db(file_name, dirname(db_path));
-trials = get_trials_by_name(db, "Barren Plateau Vanilla");
+trials = get_trials_by_name(db, "Barren Plateau NNs");
 
 nbits = sort([Set([t.configuration[:nbits] for t in trials])...]);
+architectures = sort([Set([t.configuration[:architecture] for t in trials])...]);
 nlayers = sort([Set([t.configuration[:nlayers] for t in trials])...]);
 
 hamiltonian_params = begin
@@ -108,25 +116,23 @@ hamiltonian_params = begin
 end;
 
 begin
-    gate_index = sort([Set([t.configuration[:gate_index] for t in trials])...])
-    @assert length(gate_index) == 1
-    gate_index = gate_index[begin]
-end;
-
-begin
     nrepeats = sort([Set([t.configuration[:nrepeats] for t in trials])...])
     @assert length(nrepeats) == 1
     nrepeats = nrepeats[begin]
 end;
 
 results = begin
-    results = zeros(Float64, (nrepeats, length(nbits), length(nlayers)))
+    results = zeros(Float64, (nrepeats, length(nbits), length(nlayers), length(architectures)))
 
-    for ((i, nb), (j, nl)) in Iterators.product(enumerate(nbits), enumerate(nlayers))
-        t = first([t for t in trials if t.configuration[:nlayers] == nl && t.configuration[:nbits] == nb])
-        results[:, i, j] .= t.results[:gradients]
+    for ((i, nb), (j, nl), (k, arch)) in Iterators.product(enumerate(nbits), enumerate(nlayers), enumerate(architectures))
+        t = first([t for t in trials if t.configuration[:nlayers] == nl && t.configuration[:nbits] == nb && t.configuration[:architecture] == arch])
+        results[:, i, j, k] .= t.results[:gradients]
     end
     return results
 end
 
-plot_var_grads_vs_layers(nbits, nlayers, hamiltonian_params, results)
+f = plot_var_grads_vs_layers(nbits, nlayers, hamiltonian_params, results[:, :, :, 1]);
+plot_var_grads_vs_layers(nbits, nlayers, hamiltonian_params, results[:, :, :, 2], fig=f, marker=:rect);
+# plot_var_grads_vs_layers(nbits, nlayers, hamiltonian_params, results[:, :, :, 3], fig=f, marker=:diamond);
+# plot_var_grads_vs_layers(nbits, nlayers, hamiltonian_params, results[:, :, :, 4], fig=f, marker=:star5);
+f
