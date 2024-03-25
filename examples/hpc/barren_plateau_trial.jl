@@ -2,7 +2,10 @@ using Random
 using CUDA
 using QuantumCircuits
 import LinearAlgebra: norm
+import LinearAlgebra
 include("utils.jl")
+
+LinearAlgebra.BLAS.set_num_threads(Threads.nthreads())
 
 function gate_gradient(nbits, nlayers, H, ψ₀, index=1)
     circuit = GenericBrickworkCircuit(nbits, nlayers)
