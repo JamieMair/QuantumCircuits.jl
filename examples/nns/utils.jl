@@ -17,7 +17,7 @@ function unpack_cols!(df, col_name, prepend="")
     end
 end
 
-function unpack_results(dfs...)
+function unpack_results(dfs...; groupby_colnames=[:c_architecture, :c_learning_rate])
     results = []
     for df in dfs
         sub_df = df[df[!, :has_finished], :]
@@ -32,17 +32,17 @@ function unpack_results(dfs...)
         end
 
 
-        for _subdf in groupby(sub_df, [:c_architecture, :c_learning_rate])
+        for _subdf in groupby(sub_df, groupby_colnames)
             push!(results, _subdf)
         end
     end
 
     return [results...]
 end
-function process_results(dfs...)
+function process_results(dfs...; kwargs...)
     # Sort the dataframes by the number of neurons
     df_to_neuron_count(df) = length(df.c_architecture[1]) == 0 ? 0 : sum(y -> y.neurons, df.c_architecture[1])
-    results = sort(unpack_results(dfs...), by=df_to_neuron_count)
+    results = sort(unpack_results(dfs...; kwargs...), by=df_to_neuron_count)
 
     # Combine same architectures
     architectures = sort(unique([df.c_architecture[1] for df in results]), by=x->sum(y->y.neurons, x, init=0))
@@ -157,6 +157,91 @@ function plot_all_energy_trajectories(dfs...; plot_log=false)
 
 
     cbar = Colorbar(f[length(nbits_set)+1, 1:length(dfs)], limits=(min_layers, max_layers), ticks=nlayers_set, colormap=new_colour_scheme, vertical=false, label="Layers")
+
+    return f
+end
+
+function plot_barren_plateaux(dfs...; plot_log=true)
+
+    nbits_set = sort(unique(vcat((unique(df[!, :c_nbits]) for df in dfs)...)))
+
+    f = Figure(size=(300 * length(dfs), 300))
+
+    nlayers_set = sort(unique(vcat((unique(df[!, :c_nlayers]) for df in dfs)...)))
+    nbits_set = sort(unique(vcat((unique(df[!, :c_nbits]) for df in dfs)...)))
+    min_nbits, max_nbits = extrema(vcat(([extrema(df[!, :c_nbits])...] for df in dfs)...))
+    m = log(256 / 1) / log(max_nbits / min_nbits)
+    c = log(1) - m * log(min_nbits)
+    convert_col_to_idx(nl) = Int(257 - round((1 + sqrt((nl - min_nbits) / (max_nbits - min_nbits)) * 255)))
+    color_scheme = ColorSchemes.matter
+
+    color_map = Dict((
+        map(nbits_set) do nb
+            index = convert_col_to_idx(nb)
+            # i = max(1, min(256, Int(round(exp(m*log(nl)+c)))))
+            return nb => color_scheme[index]
+        end
+    )...)
+
+
+    # Map each row to a list of axes to align them later
+    rows_axes = []
+
+    for (j, df) in enumerate(dfs)
+
+        nbits_local_set = Set(sort(unique(df[!, :c_nbits])))
+        nlayers_local_set = sort(unique(df[!, :c_nlayers]))
+
+        additional_args = plot_log ? Dict{Symbol, Any}(
+            # :xscale => CairoMakie.Makie.pseudolog10,
+            :yscale => CairoMakie.Makie.pseudolog10,
+        ) : Dict{Symbol, Any}()
+        ax = Axis(f[1, j], xlabel=L"l", ylabel=L"\text{var}[||\overline{\nabla_\theta}|| \rangle]", title=LaTeXString("\$\\text{Arch}=$j\$"); :yscale => log10)
+        push!(rows_axes, ax)
+
+        for (i, nbits) in enumerate(nbits_set)
+
+            if !(nbits in nbits_local_set)
+                continue # Skip over graphs that don't exist
+            end
+
+            current_entries = df[!, :c_nbits].==nbits
+            archs = unique(df[current_entries, :c_architecture])
+            @assert length(archs) == 1 "There should be only be a single architecture."
+
+
+
+            mean_variance = map(nlayers_local_set) do nlayers
+                tmp_df = subset(df,
+                    :c_nbits => nb -> nb .== nbits,
+                    :c_nlayers => nl -> nl .== nlayers)
+                
+                grads = tmp_df[!, :r_gradients]
+
+                if length(grads) == 0
+                    return missing
+                else
+                    nparams = unique(tmp_df[!, :r_number_of_params])[begin]
+                    m = var(grads[begin] .* nparams)
+                    return m
+                end
+            end
+
+            c = color_map[nbits]
+            
+            scatter!(ax, nlayers_local_set, mean_variance; label="$nbits", color=c)
+        end
+
+    end
+
+    new_colour_scheme = ColorScheme(map(LinRange(min_nbits, max_nbits, 256)) do nl
+        color_scheme[convert_col_to_idx(nl)]
+    end)
+
+    # linkyaxes!(rows_axes...)
+
+
+    cbar = Colorbar(f[2, 1:length(dfs)], limits=(min_nbits, max_nbits), ticks=nbits_set, colormap=new_colour_scheme, vertical=false, label="N Qubits")
 
     return f
 end

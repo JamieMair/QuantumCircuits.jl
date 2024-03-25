@@ -3,6 +3,7 @@ using ChainRulesCore
 using Flux
 using ProgressBars
 using CUDA
+using Statistics
 
 struct HamiltonianLayer{CT,TH,A<:AbstractArray}
     nbits::Int
@@ -68,18 +69,42 @@ function HamiltonianLayer(nbits::Int, nlayers::Int, ngates::Int, ψ₀::CuArray,
     return HamiltonianLayer(nbits, nlayers, ngates, Array(ψ₀), H)
 end
 
-function train!(network, epochs; lr=0.01, use_gpu = true, use_progress=false)
+function train!(network, epochs; lr=0.01, use_gpu::Bool = true, use_progress::Bool=false, save_grads_freq::Int=10)
     input = use_gpu ? [1.0f0;;] |> Flux.gpu : [1.0f0;;];
     
     losses = Float32[];
+    info = Dict{Symbol, Any}()
+    grad_info = Dict{Int, Any}()
     optim = Flux.setup(Flux.Adam(lr), network);
     iter = use_progress ? ProgressBar(1:epochs) : (1:epochs)
     for e in iter
         energy, grads = Flux.withgradient(network) do m 
             m(input)
         end
+
+        if (e-1) % save_grads_freq == 0
+            # Calculate gradient statistics
+            flat_grads, _ = Flux.destructure(grads |> Flux.cpu)
+            n_grads = length(flat_grads)
+            mean_grad = mean(flat_grads)
+            std_grads = std(flat_grads)
+            norm_grads = norm(flat_grads)
+            mean_norm_grads = norm_grads / sqrt(n_grads)
+
+            grad_info[e] = (; 
+                n_grads=n_grads,
+                mean_grad=mean_grad,
+                std_grads=std_grads,
+                norm_grads=norm_grads,
+                mean_norm_grads=mean_norm_grads
+            )
+        end
         Flux.update!(optim, network, grads[1])
         push!(losses, energy)
     end
-    return losses
+
+
+    info[:gradient_info] = grad_info
+
+    return losses, info
 end
