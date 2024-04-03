@@ -3,6 +3,7 @@ using CairoMakie
 using ColorSchemes
 import Flux: destructure
 using LaTeXStrings
+include("../matrix_tfim.jl")
 
 function unpack_cols!(df, col_name, prepend="")
     for k in keys(df[1, col_name])
@@ -45,7 +46,7 @@ function process_results(dfs...; kwargs...)
     results = sort(unpack_results(dfs...; kwargs...), by=df_to_neuron_count)
 
     # Combine same architectures
-    architectures = sort(unique([df.c_architecture[1] for df in results]), by=x->sum(y->y.neurons, x, init=0))
+    architectures = sort(unique([df.c_architecture[1] for df in results]), by=x -> sum(y -> y.neurons, x, init=0))
     result_groups = [[df for df in results if df.c_architecture[1] == c] for c in architectures]
     results = [vcat(rs...) for rs in result_groups]
 
@@ -74,9 +75,11 @@ function plot_all_energy_trajectories(dfs...; plot_log=false)
         end
     )...)
 
+    ground_energy_fn = MemoisedGroundStateFn(Float64)
+    
 
     # Map each row to a list of axes to align them later
-    rows_axes = Dict{Int, Any}()
+    rows_axes = Dict{Int,Any}()
 
     for (j, df) in enumerate(dfs)
 
@@ -87,21 +90,25 @@ function plot_all_energy_trajectories(dfs...; plot_log=false)
 
         for (i, nbits) in enumerate(nbits_set)
 
+            max_energy = -Inf
+
             if !(nbits in nbits_local_set)
                 continue # Skip over graphs that don't exist
             end
 
-            current_entries = df[!, :c_nbits].==nbits
+            current_entries = df[!, :c_nbits] .== nbits
             archs = unique(df[current_entries, :c_architecture])
             @assert length(archs) == 1 "There should be only be a single architecture."
 
             nparams = length(destructure(df[current_entries, :r_model_state][1])[1])
             nparams_log10 = Int(ceil(log10(nparams)))
-            additional_args = plot_log ? Dict{Symbol, Any}(
-                :xscale => CairoMakie.Makie.pseudolog10,
-                :yscale => CairoMakie.Makie.pseudolog10,
-            ) : Dict{Symbol, Any}()
-            ax = Axis(f[i, j], xlabel=L"t", ylabel=L"\langle H \rangle", title=LaTeXString("\$n=$nbits, |\\theta|\\approx 10^{$nparams_log10}\$"); additional_args...)
+            additional_args = plot_log ? Dict{Symbol,Any}(
+                # :xscale => log10,
+                :yscale => log10,
+            ) : Dict{Symbol,Any}()
+            xlabel = i < length(nbits_set) ? "" : L"t"
+            ylabel = j > 1 ? "" : L"\frac{\langle H \rangle - H_0}{H_0}"
+            ax = Axis(f[i, j]; xlabel, ylabel, title=LaTeXString("\$n=$nbits, |\\theta|\\approx 10^{$nparams_log10}\$"), additional_args...)
 
             if haskey(rows_axes, i)
                 push!(rows_axes[i], ax)
@@ -109,10 +116,20 @@ function plot_all_energy_trajectories(dfs...; plot_log=false)
                 rows_axes[i] = [ax]
             end
 
+            J = first(unique(df[current_entries, :c_J]))
+            h = first(unique(df[current_entries, :c_h]))
+            g = first(unique(df[current_entries, :c_g]))
+
+            ground_energy, _ = ground_energy_fn(nbits, J, h, g)
+            # hlines!(ax, ground_energy, label=L"E_0", linestyle=:dash, alpha=0.5, color=:black)
+
             for nlayers in nlayers_local_set
-                trajectories = subset(df,
+                trajectories = map(subset(df,
                     :c_nbits => nb -> nb .== nbits,
-                    :c_nlayers => nl -> nl .== nlayers)[!, :r_energy_trajectory]
+                    :c_nlayers => nl -> nl .== nlayers)[!, :r_energy_trajectory]) do trajectory
+
+                        return (trajectory .- ground_energy) ./ abs(ground_energy)
+                end
                 c = color_map[nlayers]
 
 
@@ -124,26 +141,25 @@ function plot_all_energy_trajectories(dfs...; plot_log=false)
                 err_trajectory = reshape(std(combined_trajs, dims=2), :)
                 epochs = 0:(length(mean_trajectory)-1)
 
+                max_epoch = argmax(mean_trajectory)
+
+                max_energy_layer = mean_trajectory[max_epoch] + err_trajectory[max_epoch]
+                if max_energy_layer > max_energy
+                    max_energy = max_energy_layer
+                end
+
 
                 band_c = RGBAf(c.r, c.g, c.b, 0.2)
-                band!(ax, epochs, mean_trajectory .- err_trajectory, mean_trajectory .+ err_trajectory; alpha=0.2, label=nothing, color=band_c)
+                # band!(ax, epochs, mean_trajectory .- err_trajectory, mean_trajectory .+ err_trajectory; alpha=0.2, label=nothing, color=band_c)
 
-                plot_trajectories!(ax, trajectories; alpha=0.1, label=nothing, color=c)
+                plot_trajectories!(ax, trajectories; alpha=0.025, label=nothing, color=c)
 
                 lines!(ax, epochs, mean_trajectory; label="$nlayers", color=c, lw=3)
+                
                 xlims!(ax, 0, maximum(epochs))
             end
 
-            if :r_ground_energy in propertynames(df)
-                ges = unique(skipmissing(df[df[!, :c_nbits].==nbits, :r_ground_energy]))
-                if length(ges) > 0
-                    if length(ges) > 1 
-                        @warn "There should be only one ground energy for a fixed number of qubits, but found $(length(ges)) for $(nbits)."
-                    end
-                    hlines!(ax, ges, label=L"E_0", linestyle=:dash, alpha=0.5, color=:black)
-                end
-            end
-
+            # ylims!(ax, 0.0000000001, max_energy)
         end
 
     end
@@ -192,10 +208,10 @@ function plot_barren_plateaux(dfs...; plot_log=true)
         nbits_local_set = Set(sort(unique(df[!, :c_nbits])))
         nlayers_local_set = sort(unique(df[!, :c_nlayers]))
 
-        additional_args = plot_log ? Dict{Symbol, Any}(
+        additional_args = plot_log ? Dict{Symbol,Any}(
             # :xscale => CairoMakie.Makie.pseudolog10,
             :yscale => CairoMakie.Makie.pseudolog10,
-        ) : Dict{Symbol, Any}()
+        ) : Dict{Symbol,Any}()
         ax = Axis(f[1, j], xlabel=L"l", ylabel=L"\text{var}[||\overline{\nabla_\theta}|| \rangle]", title=LaTeXString("\$\\text{Arch}=$j\$"); :yscale => log10)
         push!(rows_axes, ax)
 
@@ -205,7 +221,7 @@ function plot_barren_plateaux(dfs...; plot_log=true)
                 continue # Skip over graphs that don't exist
             end
 
-            current_entries = df[!, :c_nbits].==nbits
+            current_entries = df[!, :c_nbits] .== nbits
             archs = unique(df[current_entries, :c_architecture])
             @assert length(archs) == 1 "There should be only be a single architecture."
 
@@ -215,7 +231,7 @@ function plot_barren_plateaux(dfs...; plot_log=true)
                 tmp_df = subset(df,
                     :c_nbits => nb -> nb .== nbits,
                     :c_nlayers => nl -> nl .== nlayers)
-                
+
                 grads = tmp_df[!, :r_gradients]
 
                 if length(grads) == 0
@@ -228,7 +244,7 @@ function plot_barren_plateaux(dfs...; plot_log=true)
             end
 
             c = color_map[nbits]
-            
+
             scatter!(ax, nlayers_local_set, mean_variance; label="$nbits", color=c)
         end
 
@@ -254,7 +270,7 @@ end
 function plot_durations(dfs...; plot_log=false)
     nbits_set = sort(unique(vcat((unique(df[!, :c_nbits]) for df in dfs)...)))
 
-    f = Figure(size=(400 * length(dfs), 400  + 100))
+    f = Figure(size=(400 * length(dfs), 400 + 100))
 
     nlayers_set = sort(unique(vcat((unique(df[!, :c_nlayers]) for df in dfs)...)))
     min_layers, max_layers = extrema(vcat(([extrema(df[!, :c_nlayers])...] for df in dfs)...))
@@ -272,7 +288,7 @@ function plot_durations(dfs...; plot_log=false)
     )...)
 
     # Map each row to a list of axes to align them later
-    rows_axes = Dict{Int, Any}()
+    rows_axes = Dict{Int,Any}()
 
 
     for (j, df) in enumerate(dfs)
@@ -282,12 +298,12 @@ function plot_durations(dfs...; plot_log=false)
 
         nparams = length(destructure(df[!, :r_model_state][1])[1])
         nparams_log10 = Int(ceil(log10(nparams)))
-        additional_args = plot_log ? Dict{Symbol, Any}(
+        additional_args = plot_log ? Dict{Symbol,Any}(
             :xscale => CairoMakie.Makie.pseudolog10,
             :yscale => CairoMakie.Makie.pseudolog10,
-        ) : Dict{Symbol, Any}()
+        ) : Dict{Symbol,Any}()
         ax = Axis(f[1, j], xlabel=L"N", ylabel=L"D(s)", title=LaTeXString("\$|\\theta|\\approx 10^{$nparams_log10}\$"); additional_args..., :yscale => log2, :xscale => log2)
-        
+
         if haskey(rows_axes, j)
             push!(rows_axes[j], ax)
         else
@@ -297,14 +313,14 @@ function plot_durations(dfs...; plot_log=false)
         for nlayers in nlayers_local_set
             nbits_local = sort(collect(nbits_local_set))
             mean_durations = map(nbits_local) do nbits
-                a = df[(df[!, :c_nbits].==nbits) .&& (df[!, :c_nlayers].==nlayers), :r_duration_s]
+                a = df[(df[!, :c_nbits].==nbits).&&(df[!, :c_nlayers].==nlayers), :r_duration_s]
                 if length(a) == 0
                     return missing
                 end
                 return mean(a)
             end
             error_durations = map(nbits_local) do nbits
-                a = df[(df[!, :c_nbits].==nbits) .&& (df[!, :c_nlayers].==nlayers), :r_duration_s]
+                a = df[(df[!, :c_nbits].==nbits).&&(df[!, :c_nlayers].==nlayers), :r_duration_s]
                 if length(a) == 0
                     return missing
                 end
@@ -328,7 +344,7 @@ function plot_durations(dfs...; plot_log=false)
     for row in keys(rows_axes)
         linkyaxes!(rows_axes[row]...)
     end
-    
+
     cbar = Colorbar(f[2, 1:length(dfs)], limits=(min_layers, max_layers), ticks=nlayers_set, colormap=new_colour_scheme, vertical=false, label="Layers")
 
     return f
@@ -340,4 +356,28 @@ function plot_trajectories!(ax, trajectories; kwargs...)
     end
 
     return ax
+end
+
+struct MemoisedGroundStateFn{T} <: Function
+    answers::Dict{Tuple{Int,T,T,T},Tuple{T,Vector{T}}}
+end
+
+function MemoisedGroundStateFn(T)
+    return MemoisedGroundStateFn{T}(Dict{Tuple{Int,T,T,T},Tuple{T,Vector{T}}}())
+end
+
+function (fn::MemoisedGroundStateFn{T})(n::Int, J, h, g) where {T}
+    J = convert(T, J)
+    h = convert(T, h)
+    g = convert(T, g)
+
+    fn_args = (n, J, h, g)
+
+    if haskey(fn.answers, fn_args)
+        return fn.answers[fn_args]
+    else
+        ans = find_tfim_ground_state(fn_args...)
+        fn.answers[fn_args] = ans
+        return ans
+    end
 end

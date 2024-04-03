@@ -52,16 +52,6 @@ function run_trial(config::Dict{Symbol,Any}, trial_id)
     results[:model_state] = angle_model
     results[:git_sha] = git_sha()
 
-    if nbits <= 10
-        H = build_hamiltonian(nbits, J, h, g)
-        eigen_decomp = eigen(H)
-        min_energy = minimum(eigen_decomp.values)
-        ground_state = eigen_decomp.vectors[:, findfirst(x -> x == min_energy, eigen_decomp.values)]
-
-        results[:ground_energy] = min_energy
-        results[:ground_state] = ground_state
-    end
-
 
 
     return results
