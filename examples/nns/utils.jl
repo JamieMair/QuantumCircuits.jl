@@ -181,7 +181,7 @@ function plot_barren_plateaux(dfs...; plot_log=true)
 
     nbits_set = sort(unique(vcat((unique(df[!, :c_nbits]) for df in dfs)...)))
 
-    f = Figure(size=(300 * length(dfs), 300))
+    f = Figure(size=(300*length(dfs), 400))
 
     nlayers_set = sort(unique(vcat((unique(df[!, :c_nlayers]) for df in dfs)...)))
     nbits_set = sort(unique(vcat((unique(df[!, :c_nbits]) for df in dfs)...)))
@@ -199,9 +199,33 @@ function plot_barren_plateaux(dfs...; plot_log=true)
         end
     )...)
 
+    symbol_list = [
+        :rect,
+        :circle,
+        :cross,
+        :utriangle
+    ]
+    linestyle_list = [
+        :dash,
+        :dashdot,
+        :dashdotdot,
+        :solid,
+    ]
 
-    # Map each row to a list of axes to align them later
-    rows_axes = []
+    labels = [
+        "No NN",
+        "3 x 50",
+        "3 x 250",
+        "3 x 1250",
+    ]
+
+    graph_elements = map([a for a in zip(symbol_list, linestyle_list)]) do (marker, linestyle)
+        return [LineElement(color = :black, linestyle = linestyle),
+        MarkerElement(color = :black, marker = marker, strokecolor = :black)]
+    end
+
+
+    row_axs = []
 
     for (j, df) in enumerate(dfs)
 
@@ -210,10 +234,13 @@ function plot_barren_plateaux(dfs...; plot_log=true)
 
         additional_args = plot_log ? Dict{Symbol,Any}(
             # :xscale => CairoMakie.Makie.pseudolog10,
-            :yscale => CairoMakie.Makie.pseudolog10,
+            :yscale => log10,
         ) : Dict{Symbol,Any}()
-        ax = Axis(f[1, j], xlabel=L"l", ylabel=L"\text{var}[||\overline{\nabla_\theta}|| \rangle]", title=LaTeXString("\$\\text{Arch}=$j\$"); :yscale => log10)
-        push!(rows_axes, ax)
+
+
+        ylabel = j > 1 ? "" : L"\mathbb{E} \left [ \frac{ \left {||} \overline{\nabla_\theta} \right {||} }{N_\text{params}} \right ]"
+        ax = Axis(f[1, j]; xlabel=L"l", ylabel, title=labels[j], yscale=log10)
+        push!(row_axs, ax)
 
         for (i, nbits) in enumerate(nbits_set)
 
@@ -227,25 +254,33 @@ function plot_barren_plateaux(dfs...; plot_log=true)
 
 
 
-            mean_variance = map(nlayers_local_set) do nlayers
+            mean_gradient_vector_size = map(nlayers_local_set) do nlayers
                 tmp_df = subset(df,
                     :c_nbits => nb -> nb .== nbits,
                     :c_nlayers => nl -> nl .== nlayers)
 
-                grads = tmp_df[!, :r_gradients]
+                grads = map(tmp_df[!, :r_training_info]) do info
+                    k = info[:gradient_info][1]
+                    nparams = QuantumCircuits.brickwork_num_gates(nbits, nlayers) * 15
+                    return k.norm_grads / nparams
+                end
 
                 if length(grads) == 0
                     return missing
                 else
-                    nparams = unique(tmp_df[!, :r_number_of_params])[begin]
-                    m = var(grads[begin] .* nparams)
-                    return m
+                    return mean(grads)
                 end
             end
 
             c = color_map[nbits]
 
-            scatter!(ax, nlayers_local_set, mean_variance; label="$nbits", color=c)
+            linestyle = linestyle_list[j]
+
+            lines!(ax, nlayers_local_set, mean_gradient_vector_size; label="$nbits", color=c, linestyle=linestyle, alpha=0.4)
+
+            marker = symbol_list[j]
+
+            scatter!(ax, nlayers_local_set, mean_gradient_vector_size; label="$nbits", color=c, marker=marker)
         end
 
     end
@@ -254,10 +289,10 @@ function plot_barren_plateaux(dfs...; plot_log=true)
         color_scheme[convert_col_to_idx(nl)]
     end)
 
-    # linkyaxes!(rows_axes...)
+    # Legend(f[1,2], graph_elements, labels)
+    linkyaxes!(row_axs...)
 
-
-    cbar = Colorbar(f[2, 1:length(dfs)], limits=(min_nbits, max_nbits), ticks=nbits_set, colormap=new_colour_scheme, vertical=false, label="N Qubits")
+    cbar = Colorbar(f[2, 1:length(dfs)], limits=(min_nbits, max_nbits), ticks=nbits_set, colormap=new_colour_scheme, vertical=false, label="N")
 
     return f
 end
