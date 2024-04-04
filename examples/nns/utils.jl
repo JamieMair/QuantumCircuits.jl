@@ -418,6 +418,126 @@ function plot_barren_plateaux(dfs...; plot_log=true)
     return f
 end
 
+function plot_barren_plateaux_v2(dfs...; plot_log=true)
+
+    nbits_set = sort(unique(vcat((unique(df[!, :c_nbits]) for df in dfs)...)))
+
+    f = Figure(size=(300*length(dfs), 400))
+
+    nlayers_set = sort(unique(vcat((unique(df[!, :c_nlayers]) for df in dfs)...)))
+    nbits_set = sort(unique(vcat((unique(df[!, :c_nbits]) for df in dfs)...)))
+    min_nbits, max_nbits = extrema(vcat(([extrema(df[!, :c_nbits])...] for df in dfs)...))
+    m = log(256 / 1) / log(max_nbits / min_nbits)
+    c = log(1) - m * log(min_nbits)
+    convert_col_to_idx(nl) = Int(257 - round((1 + sqrt((nl - min_nbits) / (max_nbits - min_nbits)) * 255)))
+    color_scheme = ColorSchemes.matter
+
+    color_map = Dict((
+        map(nbits_set) do nb
+            index = convert_col_to_idx(nb)
+            # i = max(1, min(256, Int(round(exp(m*log(nl)+c)))))
+            return nb => color_scheme[index]
+        end
+    )...)
+
+    symbol_list = [
+        :rect,
+        :circle,
+        :cross,
+        :utriangle
+    ]
+    linestyle_list = [
+        :dash,
+        :dashdot,
+        :dashdotdot,
+        :solid,
+    ]
+
+    labels = [
+        "No NN",
+        "3 x 50",
+        "3 x 250",
+        "3 x 1250",
+    ]
+
+    graph_elements = map([a for a in zip(symbol_list, linestyle_list)]) do (marker, linestyle)
+        return [LineElement(color = :black, linestyle = linestyle),
+        MarkerElement(color = :black, marker = marker, strokecolor = :black)]
+    end
+
+
+    row_axs = []
+
+    for (j, df) in enumerate(dfs)
+
+        nbits_local_set = Set(sort(unique(df[!, :c_nbits])))
+        nlayers_local_set = sort(unique(df[!, :c_nlayers]))
+
+        additional_args = plot_log ? Dict{Symbol,Any}(
+            # :xscale => CairoMakie.Makie.pseudolog10,
+            :yscale => log10,
+        ) : Dict{Symbol,Any}()
+
+
+        ylabel = j > 1 ? "" : L"\mathbb{E} \left [ \frac{\left {||} \overline{\nabla_\theta} \right {||}^2}{N_\theta} \right ]"
+        ax = Axis(f[1, j]; xlabel=L"l", ylabel, title=labels[j], yscale=log10)
+        push!(row_axs, ax)
+
+        for (i, nbits) in enumerate(nbits_set)
+
+            if !(nbits in nbits_local_set)
+                continue # Skip over graphs that don't exist
+            end
+
+            current_entries = df[!, :c_nbits] .== nbits
+            archs = unique(df[current_entries, :c_architecture])
+            @assert length(archs) == 1 "There should be only be a single architecture."
+
+
+
+            mean_gradient_vector_size = map(nlayers_local_set) do nlayers
+                tmp_df = subset(df,
+                    :c_nbits => nb -> nb .== nbits,
+                    :c_nlayers => nl -> nl .== nlayers)
+                
+                
+                @assert length(unique(tmp_df.r_number_of_params)) == 1 # Make sure all using the same number of parameters
+
+                samples = vcat(tmp_df.r_gradients...)
+                samples .= samples .^ 2 ./ tmp_df.r_number_of_params[begin]
+
+                if length(samples) == 0
+                    return missing
+                else
+                    return mean(samples)
+                end
+            end
+
+            c = color_map[nbits]
+
+            linestyle = linestyle_list[j]
+
+            lines!(ax, nlayers_local_set, mean_gradient_vector_size; label="$nbits", color=c, linestyle=linestyle, alpha=0.4)
+
+            marker = symbol_list[j]
+
+            scatter!(ax, nlayers_local_set, mean_gradient_vector_size; label="$nbits", color=c, marker=marker)
+        end
+
+    end
+
+    new_colour_scheme = ColorScheme(map(LinRange(min_nbits, max_nbits, 256)) do nl
+        color_scheme[convert_col_to_idx(nl)]
+    end)
+
+    # Legend(f[1,2], graph_elements, labels)
+    linkyaxes!(row_axs...)
+
+    cbar = Colorbar(f[2, 1:length(dfs)], limits=(min_nbits, max_nbits), ticks=nbits_set, colormap=new_colour_scheme, vertical=false, label="N")
+
+    return f
+end
+
 function count_neurons(df)
     return length(df.c_architecture[1]) == 0 ? 0 : sum(y -> y.neurons, df.c_architecture[1])
 end

@@ -1,6 +1,7 @@
 using Flux
+using CairoMakie
 
-function test_network(nangles, s = 0, c = 0.01)
+function test_network(nangles, s = 0; c = 0.01)
     if s == 0
         eff_gain = c * sqrt((nangles + 1) / 2)
         return Chain(Dense(1=>nangles, identity; bias=false, init=Flux.glorot_normal(gain=eff_gain)))
@@ -16,11 +17,11 @@ function test_network(nangles, s = 0, c = 0.01)
 
 end
 
-function test_distribution(nangles, s, repeats=1024)
+function test_distribution(nangles, s, repeats=1024; kwargs...)
     angles = Float32[]
 
     for _ in 1:repeats
-        n = test_network(nangles, s)
+        n = test_network(nangles, s; kwargs...)
         ys = n(1:1)
         append!(angles, ys)
     end

@@ -55,7 +55,7 @@ function run_trial(config::Dict{Symbol, Any}, trial_id)
             m(input)
         end
         gs, _ = Flux.destructure(grads)
-        norm_gradient = norm(reshape(gs, :)) / length(gs)
+        norm_gradient = norm(reshape(gs, :))
         number_of_params = length(gs)
 
         energies[i] = energy

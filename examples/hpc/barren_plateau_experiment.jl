@@ -1,17 +1,21 @@
 using Experimenter
 cd(joinpath(@__DIR__, ".."))
 
-db = open_db("experiments.db", "hpc/results", true)
+db = open_db("experiments_plateaux.db", "hpc/results", true)
+
+nblocks = 20
+nrepeats = 10000
+nrepeats_per_block = cld(nrepeats, nblocks)
 
 config = Dict{Symbol, Any}(
-    :nbits => IterableVariable(collect(4:2:14)),
-    :nlayers => IterableVariable(collect(4:4:40)),
-    :nrepeats => 100,
+    :nbits => IterableVariable(collect(4:2:8)),
+    :nlayers => IterableVariable([2, collect(4:4:24)...]),
+    :nrepeats => IterableVariable([nrepeats_per_block for _ in 1:nblocks]),
     :J => 1.0,
     :h => 0.9045,
     :g => 1.4,
     :use_gpu => false,
-    :weight_init_magnitude => 0.01f0,
+    :weight_init_magnitude => 100.0f0,
     :architecture => IterableVariable([
         [], # No neural network
         [ # 50 neurons
@@ -33,7 +37,7 @@ config = Dict{Symbol, Any}(
 )
 
 experiment = Experiment(
-    name="Barren Plateau NNs",
+    name="Barren Plateau NNs Trial 2",
     include_file="hpc/barren_plateau_trial.jl",
     function_name="run_trial",
     configuration = deepcopy(config)
