@@ -9,7 +9,7 @@ nrepeats_per_block = cld(nrepeats, nblocks)
 
 config = Dict{Symbol, Any}(
     :nbits => IterableVariable(collect(4:2:12)),
-    :nlayers => IterableVariable([2, 4, 6, collect(8:4:40)...])
+    :nlayers => IterableVariable([2, 4, 6, collect(8:4:40)...]),
     :J => 1.0,
     :h => 0.9045,
     :g => 1.4,
