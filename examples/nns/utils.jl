@@ -418,7 +418,7 @@ function plot_barren_plateaux(dfs...; plot_log=true)
     return f
 end
 
-function plot_barren_plateaux_v2(dfs...; plot_log=true)
+function plot_barren_plateaux_v2(dfs...; plot_log=true, join_axes=true)
 
     nbits_set = sort(unique(vcat((unique(df[!, :c_nbits]) for df in dfs)...)))
 
@@ -531,7 +531,9 @@ function plot_barren_plateaux_v2(dfs...; plot_log=true)
     end)
 
     # Legend(f[1,2], graph_elements, labels)
-    linkyaxes!(row_axs...)
+    if join_axes
+        linkyaxes!(row_axs...)
+    end
 
     cbar = Colorbar(f[2, 1:length(dfs)], limits=(min_nbits, max_nbits), ticks=nbits_set, colormap=new_colour_scheme, vertical=false, label="N")
 

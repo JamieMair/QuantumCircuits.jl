@@ -31,6 +31,8 @@ function run_trial(config::Dict{Symbol, Any}, trial_id)
     g = config[:g]
     use_gpu = haskey(config, :use_gpu) ? config[:use_gpu] : false
 
+    results[:start_time] = now()
+
 
     seed = Int(Random.rand(UInt16))
     results[:seed] = seed
@@ -61,6 +63,11 @@ function run_trial(config::Dict{Symbol, Any}, trial_id)
         energies[i] = energy
         gradients[i] = norm_gradient
     end
+
+
+    results[:end_time] = now()
+    results[:duration] = results[:end_time]-results[:start_time]
+    results[:duration_s] = round(results[:duration], Dates.Second).value
 
     results[:number_of_params] = number_of_params
     results[:gradients] = gradients
