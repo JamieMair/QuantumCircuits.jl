@@ -17,6 +17,7 @@ function run_trial(config::Dict{Symbol,Any}, trial_id)
     h = config[:h]
     g = config[:g]
     lr = config[:learning_rate]
+    gradient_noise = haskey(config, :gradient_noise) ? config[:gradient_noise] : 0
     epochs = config[:epochs]
     save_grads_freq = config[:save_grads_freq]
 
