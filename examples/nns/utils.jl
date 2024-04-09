@@ -172,7 +172,7 @@ function plot_all_energy_trajectories(dfs...; plot_log=false)
     end
 
 
-    cbar = Colorbar(f[length(nbits_set)+1, 1:length(dfs)], limits=(min_layers, max_layers), ticks=nlayers_set, colormap=new_colour_scheme, vertical=false, label="Layers")
+    cbar = Colorbar(f[length(nbits_set)+1, 1:length(dfs)], limits=(min_layers, max_layers), ticks=nlayers_set, colormap=new_colour_scheme, vertical=false, label="Depth")
 
     return f
 end
@@ -429,8 +429,8 @@ function plot_barren_plateaux_v2(dfs...; plot_log=true, join_axes=true)
     min_nbits, max_nbits = extrema(vcat(([extrema(df[!, :c_nbits])...] for df in dfs)...))
     m = log(256 / 1) / log(max_nbits / min_nbits)
     c = log(1) - m * log(min_nbits)
-    convert_col_to_idx(nl) = Int(257 - round((1 + sqrt((nl - min_nbits) / (max_nbits - min_nbits)) * 255)))
-    color_scheme = ColorSchemes.matter
+    convert_col_to_idx(nl) = Int(257 - round((1 + sqrt((nl - min_nbits) / (max_nbits - min_nbits)) * 230)))
+    color_scheme = ColorSchemes.tempo
 
     color_map = Dict((
         map(nbits_set) do nb

@@ -3,6 +3,8 @@ using CUDA
 using QuantumCircuits
 import LinearAlgebra: norm
 import LinearAlgebra
+using Dates
+
 include("utils.jl")
 
 LinearAlgebra.BLAS.set_num_threads(Threads.nthreads())
