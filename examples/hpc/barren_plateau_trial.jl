@@ -1,5 +1,13 @@
-using Random;
-include("../matrix_tfim.jl")
+using Random
+using CUDA
+using QuantumCircuits
+import LinearAlgebra: norm
+import LinearAlgebra
+using Dates
+
+include("utils.jl")
+
+LinearAlgebra.BLAS.set_num_threads(Threads.nthreads())
 
 function gate_gradient(nbits, nlayers, H, ψ₀, index=1)
     circuit = GenericBrickworkCircuit(nbits, nlayers)
@@ -20,10 +28,13 @@ function run_trial(config::Dict{Symbol, Any}, trial_id)
     nbits = config[:nbits]
     nlayers = config[:nlayers]
     nrepeats = config[:nrepeats]
-    gate_index = config[:gate_index]
     J = config[:J]
     h = config[:h]
     g = config[:g]
+    use_gpu = haskey(config, :use_gpu) ? config[:use_gpu] : false
+
+    results[:start_time] = now()
+
 
     seed = Int(Random.rand(UInt16))
     results[:seed] = seed
@@ -31,12 +42,38 @@ function run_trial(config::Dict{Symbol, Any}, trial_id)
 
     results[:git_sha] = git_sha()
 
-    H = build_hamiltonian(nbits, J, h, g);
-    ψ₀ = zero_state_tensor(nbits);
+    ngates = QuantumCircuits.brickwork_num_gates(nbits, nlayers)
+    nangles = ngates * 15
+    results[:ngates] = ngates
+    results[:nangles] = nangles
 
-    results[:gradients] = map(1:nrepeats) do _
-        return gate_gradient(nbits, nlayers, H, ψ₀, gate_index)
+    
+    input = use_gpu ? [1.0f0;;] |> Flux.gpu : [1.0f0;;];
+    energies = zeros(Float32, nrepeats)
+    gradients = zeros(Float32, nrepeats)
+    number_of_params = 0
+
+    for i in 1:nrepeats
+        network = create_nn_from_architecture(config)
+        energy, grads = Flux.withgradient(network) do m 
+            m(input)
+        end
+        gs, _ = Flux.destructure(grads)
+        norm_gradient = norm(reshape(gs, :))
+        number_of_params = length(gs)
+
+        energies[i] = energy
+        gradients[i] = norm_gradient
     end
+
+
+    results[:end_time] = now()
+    results[:duration] = results[:end_time]-results[:start_time]
+    results[:duration_s] = round(results[:duration], Dates.Second).value
+
+    results[:number_of_params] = number_of_params
+    results[:gradients] = gradients
+    results[:energies] = energies
 
     return results
 end

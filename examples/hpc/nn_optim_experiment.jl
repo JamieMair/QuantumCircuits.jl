@@ -1,18 +1,20 @@
 using Experimenter
 cd(joinpath(@__DIR__, ".."))
 
-db = open_db("experiments.db", "hpc/results", true)
+db = open_db("experiments_long.db", "hpc/results", true)
 
-nrepeats = 10
+nrepeats = 100
 config = Dict{Symbol,Any}(
-    :nbits => IterableVariable(collect(4:2:16)),
-    :nlayers => IterableVariable([4, 8, 12, 16]),
-    :repeat_id => IterableVariable(collect(1:nrepeats)),
+    :nbits => IterableVariable(collect(4:2:12)),
+    :nlayers => IterableVariable([4, 8, 12, 16, 20]),
     :J => 1.0,
     :h => 0.9045,
     :g => 1.4,
+    :epochs => 200,
+    :save_grads_freq => 1,
+    :weight_init_magnitude => 0.01f0,
     :learning_rate => IterableVariable([0.0002]),
-    :use_gpu => true,
+    :use_gpu => false,
     :architecture => IterableVariable([
         [], # No neural network
         [ # 50 neurons
@@ -29,12 +31,13 @@ config = Dict{Symbol,Any}(
             (; neurons=1250, activation=:tanh),
             (; neurons=1250, activation=:tanh),
             (; neurons=1250, activation=:tanh)
-        ]]),
-    :epochs => 200,
+        ]
+    ]),
+    :repeat_id => IterableVariable(collect(1:nrepeats)),
 )
 
 experiment = Experiment(
-    name="NN Optimisation J=h",
+    name="NN Optimisation Near Critical With Gradients",
     include_file="hpc/nn_optim_trial.jl",
     function_name="run_trial",
     configuration=deepcopy(config)
