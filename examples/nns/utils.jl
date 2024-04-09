@@ -40,18 +40,21 @@ function unpack_results(dfs...; groupby_colnames=[:c_architecture, :c_learning_r
 
     return [results...]
 end
-function process_results(dfs...; kwargs...)
+
+function process_results(dfs...; should_merge_architectures=true, kwargs...)
     # Sort the dataframes by the number of neurons
     df_to_neuron_count(df) = length(df.c_architecture[1]) == 0 ? 0 : sum(y -> y.neurons, df.c_architecture[1])
     results = sort(unpack_results(dfs...; kwargs...), by=df_to_neuron_count)
 
-    # Combine same architectures
-    architectures = sort(unique([df.c_architecture[1] for df in results]), by=x -> sum(y -> y.neurons, x, init=0))
-    result_groups = [[df for df in results if df.c_architecture[1] == c] for c in architectures]
-    results = [vcat(rs...) for rs in result_groups]
+    if should_merge_architectures
+        # Combine same architectures
+        architectures = sort(unique([df.c_architecture[1] for df in results]), by=x -> sum(y -> y.neurons, x, init=0))
+        result_groups = [[df for df in results if df.c_architecture[1] == c] for c in architectures]
+        results = [vcat(rs...) for rs in result_groups]
 
-    # Final sort to make sure
-    results = sort(results, by=df_to_neuron_count)
+        # Final sort to make sure
+        results = sort(results, by=df_to_neuron_count)
+    end
     return results
 end
 
