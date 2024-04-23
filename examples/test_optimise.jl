@@ -9,8 +9,8 @@ BLAS.set_num_threads(1)  # This is to avoid the parallelisation which actually i
 
 
 J = 1
-g = 1.1
-h = 0.009045
+g = 1.4
+h = 0.9045
 
 
 N = 10  # even!
@@ -25,7 +25,7 @@ psi_GS = first(eigen_vecs);
 U_id = reshape(Matrix{ComplexF64}(I, 4, 4), (2,2,2,2));
 circuit = [[copy(U_id) for i in 1:N-1] for j in 1:n_layers];
 
-@time overlaps, energies = polar_optimise(circuit, psi_GS, H_sparse, N, iterations=500)
+@time overlaps, energies = polar_optimise(circuit, psi_GS, H_sparse, N, iterations=500);
 
 
 using Plots

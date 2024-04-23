@@ -2,7 +2,7 @@
 using MatrixProductStates  # should be moved to QuantumCircuits.jl when happy
 using LinearAlgebra
 using SparseArrays
-using ProgressMeter
+using ProgressBars
 
 import KrylovKit: eigsolve
 
@@ -164,8 +164,9 @@ function polar_optimise(circuit, psi_GS, H_sparse, N; iterations=100)
 
     overlaps = []
     energies = []
-    p = Progress(iterations; dt=0.1, desc="Optimising...")
-    for iteration in 1:iterations
+
+    iter = ProgressBar(1:iterations)
+    for iteration in iter
 
         lower_state = zeros(2^N)
         lower_state[1] = 1
@@ -193,7 +194,7 @@ function polar_optimise(circuit, psi_GS, H_sparse, N; iterations=100)
         append!(overlaps, abs(psi_GS[:]' * lower_state[:]))
         append!(energies, compute_energy(H_sparse, lower_state[:]))
 
-        next!(p; showvalues = [(:iteration,iteration), (:energy, energies[end])])
+        set_multiline_postfix(iter, "energy: $(energies[end])")
 
     end
 
