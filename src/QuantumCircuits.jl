@@ -37,4 +37,7 @@ include("gradients.jl")
 ## MATRIX PRODUCT STATES
 include("mps.jl")
 
+## POLAR OPTIMISATION 
+include("polar_optimise.jl")  # maybe you will want to rename?
+
 end
