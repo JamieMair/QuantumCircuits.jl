@@ -13,7 +13,7 @@ g = 1.4
 h = 0.9045
 
 
-N = 16  # even!
+N = 10  # even!
 M = 4  # even! I will be counting layers as two of Jamie's layers so that there are N-1 gates in a layer.
 n_layers = M ÷ 2
 
@@ -27,6 +27,8 @@ H_mpo = TFIM(N, -J, -g, -h);
 
 @time H_sparse = build_sparse_tfim_hamiltonian(N, J, h, g)
 @time H_sparse2 = Symmetric(real(create_sparse_H(N, J, g, h)))
+
+H_sparse ≈ H_sparse2  # only do if matrices are small!
 
 H_sparse2 = []
 
