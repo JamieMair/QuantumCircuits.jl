@@ -13,15 +13,25 @@ g = 1.4
 h = 0.9045
 
 
-N = 14  # even!
+N = 16  # even!
 M = 4  # even! I will be counting layers as two of Jamie's layers so that there are N-1 gates in a layer.
 n_layers = M ÷ 2
 
 
+function create_sparse_H(N, J, g, h)
+    H_mpo = TFIM(N, -J, -g, -h);
+    return to_sparse(H_mpo)
+end
+
 H_mpo = TFIM(N, -J, -g, -h);
 
-H_sparse = build_sparse_tfim_hamiltonian(N, J, h, g);
-eigen_vals, eigen_vecs, _ = eigsolve(H_sparse, 2^N, 1, :SR);
+@time H_sparse = build_sparse_tfim_hamiltonian(N, J, h, g)
+@time H_sparse2 = Symmetric(real(create_sparse_H(N, J, g, h)))
+
+H_sparse2 = []
+
+
+@time eigen_vals, eigen_vecs, _ = eigsolve(H_sparse2, 2^N, 1, :SR)
 energy_GS = first(eigen_vals)
 psi_GS = first(eigen_vecs);
 
