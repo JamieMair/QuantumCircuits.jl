@@ -29,7 +29,7 @@ include("apply.jl")
 include("circuits.jl")
 
 ## HAMILTONIANS
-include("hamiltonians.jl")
+include("hamiltonians/hamiltonians.jl")
 
 ## GRADIENTS
 include("gradients.jl")
