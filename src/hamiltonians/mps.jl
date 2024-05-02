@@ -8,15 +8,15 @@ struct MPSTerm{T}
     matrix::Matrix{T}
 end
 
-struct MPSHamiltonian{T}
+struct MPSHamiltonian
     nbits::Int
-    termList::Vector{MPSTerm{T}}  # only single or two qubit terms allowed at the moment!
+    termList::Vector{MPSTerm}  # only single or two qubit terms allowed at the moment!
 end
 
 """
 Empty Hamiltonian constructor
 """
-MPSHamiltonian(nbits) = MPSHamiltonian(nbits, [])
+MPSHamiltonian(nbits) = MPSHamiltonian(nbits, MPSTerm[])
 
 Base.copy(ham::MPSHamiltonian) = MPSHamiltonian(ham.nbits, copy(ham.termList))
 
@@ -31,6 +31,7 @@ function add!(ham::MPSHamiltonian, term::MPSTerm)
     end
     push!(ham.termList, term)
 end
+
 
 function add(ham::MPSHamiltonian, term::MPSTerm)
     new_ham = copy(ham)

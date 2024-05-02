@@ -48,7 +48,6 @@ end
         M = 2*N
 
         # generate random circuit that is close to identity.
-        circuit = GenericBrickworkCircuit(N, M)
         circuit = GenericBrickworkCircuit(N, M, QuantumCircuits.brickwork_num_gates(N, M), 0.01/M*randn(15, circuit.ngates))
 
         H = MPSTFIMHamiltonian(N, 1, 0, 1.1)  # create Hamiltonian
