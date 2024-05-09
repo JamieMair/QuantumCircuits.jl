@@ -8,7 +8,7 @@ using KernelAbstractions
 ## EXPORTS
 export apply, apply!
 export Localised1SpinGate, Localised2SpinAdjGate
-export CNOTGate, XGate, ZGate, IdentityGate, HadamardGate, Generic1SpinGate, Generic2SpinGate
+export CNOTGate, XGate, ZGate, NGate, IdentityGate, HadamardGate, Generic1SpinGate, Generic2SpinGate
 export convert_gates_to_matrix
 export zero_state_vec, zero_state_tensor
 export build_general_unitary_gate
