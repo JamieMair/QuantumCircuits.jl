@@ -1,3 +1,5 @@
+using SparseArrays
+
 """
 A struct containing the parameters of the Transverse Field Ising Model.
 

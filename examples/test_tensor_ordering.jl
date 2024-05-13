@@ -1,9 +1,9 @@
 using Revise
 using LinearAlgebra
 using MatrixProductStates
-using Plots
-using LaTeXStrings
 include("matrix_tfim.jl")
+
+QuantumCircuits.init_mps_support()
 
 psi0 = zeros(4)
 psi0[1] = 1
