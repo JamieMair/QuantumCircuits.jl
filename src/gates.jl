@@ -11,6 +11,7 @@ const _HadamardGateMat = SMatrix{2, 2, Float64, 4}([1; 1;; 1; -1]' ./ sqrt(2));
 const _XGateMat = SMatrix{2, 2, Float64, 4}([0; 1;;1; 0]');
 const _ZGateMat = SMatrix{2, 2, Float64, 4}([1; 0;;0; -1]');
 const _IGateMat = SMatrix{2, 2, Float64, 4}([1; 0;;0; 1]');
+const _NGateMat = SMatrix{2, 2, Float64, 4}([1; 0;;0; 0]');
 const _CNOTMat = SArray{NTuple{4, 2}, Float64, 4, 16}([1;0;;0;0;;;0;0;;0;1;;;;0;0;;1;0;;;0;1;;0;0]);
 const _ReverseCNOTMat = SArray{NTuple{4, 2}, Float64, 4, 16}([1;0;;0;0;;;0;1;;0;0;;;;0;0;;0;1;;;0;0;;1;0]);
 
@@ -18,6 +19,8 @@ struct XGate <: Abstract1SpinGate end
 mat(::XGate) = _XGateMat
 struct ZGate <: Abstract1SpinGate end
 mat(::ZGate) = _ZGateMat
+struct NGate <: Abstract1SpinGate end
+mat(::NGate) = _NGateMat
 struct HadamardGate <: Abstract1SpinGate end
 mat(::HadamardGate) = _HadamardGateMat
 struct IdentityGate <: Abstract1SpinGate end
