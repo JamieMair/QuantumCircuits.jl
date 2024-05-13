@@ -1,6 +1,9 @@
 using QuantumCircuits
 using Documenter
 
+QuantumCircuits.install_mps_support()
+QuantumCircuits.init_mps_support()
+
 DocMeta.setdocmeta!(QuantumCircuits, :DocTestSetup, :(using QuantumCircuits); recursive=true)
 
 makedocs(;
