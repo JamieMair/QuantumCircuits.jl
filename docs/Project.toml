@@ -1,3 +1,4 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+MatrixProductStates = "d2b9b0d9-0b99-44d1-9ba5-49f6360db25a"
 QuantumCircuits = "52f5b622-0dbc-4b19-b154-18c0dc35fa48"
