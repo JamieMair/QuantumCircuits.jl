@@ -4,6 +4,9 @@ getval(::Val{X}) where {X} = X
 matrix_only_mat(gate) = QuantumCircuits.mat(gate)
 matrix_only_mat(gate::QuantumCircuits.Abstract2SpinGate) = reshape(QuantumCircuits.mat(gate), 4, 4)
 
+
+function convert_to_matrix end
+
 function convert_gates_to_matrix(nbits, gates)
     gate_dict = Dict{Int, QuantumCircuits.AbstractGate}(
         (g.target_gate_dim=>g for g in gates)...

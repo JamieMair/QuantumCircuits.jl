@@ -52,6 +52,5 @@ end
 
 include("tfim.jl")
 include("east_model.jl")
-include("mps.jl")
 
 
