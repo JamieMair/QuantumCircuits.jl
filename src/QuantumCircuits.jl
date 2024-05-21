@@ -8,13 +8,14 @@ using KernelAbstractions
 ## EXPORTS
 export apply, apply!
 export Localised1SpinGate, Localised2SpinAdjGate
-export CNOTGate, XGate, ZGate, IdentityGate, HadamardGate, Generic1SpinGate, Generic2SpinGate
+export CNOTGate, XGate, ZGate, NGate, IdentityGate, HadamardGate, Generic1SpinGate, Generic2SpinGate
 export convert_gates_to_matrix
 export zero_state_vec, zero_state_tensor
 export build_general_unitary_gate
 export GenericBrickworkCircuit, reconstruct, measure, gradient, gradients, optimise!
 export TFIMHamiltonian, measure!
-export MPSHamiltonian, add!, MPSTFIMHamiltonian, convert_to_matrix
+export EastModelHamiltonian
+export convert_to_matrix
 
 ## GATES
 include("gates.jl")
@@ -29,15 +30,12 @@ include("apply.jl")
 include("circuits.jl")
 
 ## HAMILTONIANS
-include("hamiltonians.jl")
+include("hamiltonians/hamiltonians.jl")
 
 ## GRADIENTS
 include("gradients.jl")
 
 ## MATRIX PRODUCT STATES
 include("mps.jl")
-
-## POLAR OPTIMISATION 
-include("polar_optimise.jl")  # maybe you will want to rename?
 
 end

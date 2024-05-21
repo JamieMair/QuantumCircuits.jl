@@ -122,3 +122,29 @@ end
         end
     end
 end
+
+@testitem "East Model Hamiltonian" begin
+    using QuantumCircuits
+    using Random
+    using LinearAlgebra
+    s = -0.1
+    c = 0.1
+    A = -exp(-s) * sqrt(c * (1-c))
+    B = (1 - 2c)
+
+    nbits = 5
+    ψ = randn(ComplexF64, Tuple(2 for _ in 1:nbits))
+    ψ ./= norm(ψ)
+
+    H_eff = EastModelHamiltonian(c, s)
+    @test H_eff.A ≈ A
+    @test H_eff.B ≈ B
+    # Build H
+    H = QuantumCircuits.mat(H_eff, nbits);
+
+    E_eff = measure(H_eff, ψ)
+    E_actual = measure(H, ψ)
+
+
+    @test E_eff ≈ E_actual
+end

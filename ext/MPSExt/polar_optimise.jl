@@ -1,67 +1,10 @@
-# add package using "add https://github.com/AdamSmith-physics/MatrixProductStates.jl#main"
-using MatrixProductStates  # should be moved to QuantumCircuits.jl when happy
+
 using LinearAlgebra
 using SparseArrays
 using ProgressBars
-using TensorOperations
-
-import KrylovKit: eigsolve
-
-#####################################
-# These functions are taken from matrix_tfim.jl as Jamie had not yet incorporated them into hamiltonians.jl
- 
-export build_sparse_tfim_hamiltonian
-function build_sparse_tfim_hamiltonian(n, J, h, g)
-
-    matrix_eltype = promote_type(typeof(J), typeof(h), typeof(g))
-    Jh = J*h
-    Jg = J * g
-
-    diagonal_elements = map(0:((2^n)-1)) do C
-        zz = zero(matrix_eltype)
-        for i in 0:(n-2)
-            r = unsafe_trunc(UInt8, C >> i) % 0b0100
-            # Matching spins
-            zz += (r == 0b11) || (r == 0b00)
-            # Different spins
-            zz -= (r == 0b01) || (r == 0b10)
-        end
-
-        z = (n - 2*count_ones(C))
-
-        return -(J * zz + Jh * z)
-    end
-    H = spdiagm(diagonal_elements)
-
-    for i in 1:2^n
-        Ci = i - 1
-        for k in 0:(n-1)
-            Cj = xor(Ci, 1 << k)
-            H[Cj + 1, i] += -Jg
-        end
-    end
-
-    return LinearAlgebra.Symmetric(H)
-end
-
-export find_tfim_ground_state
-function find_tfim_ground_state(nbits, J, h, g)
-    H = build_sparse_tfim_hamiltonian(nbits, J, h, g)
-    eigen_vals, eigen_vecs, _ = eigsolve(H, 2^nbits, 1, :SR)
-    
-
-    return first(eigen_vals), first(eigen_vecs)
-end
-
-#####################################
-
-
-function compute_energy(H, psi_vector)
-    return real(psi_vector' * H * psi_vector)
-end
 
 function perm_idxs(site, N)
-    perm_idx = [1:N...]
+    perm_idx = collect(1:N)
     for i in 1:site-1
         perm_idx[i] = i+2
     end
@@ -159,15 +102,16 @@ Separated out to reduce code repetition in the optimisation function
 end
 
 
-export polar_optimise
-function polar_optimise(circuit, psi_GS, H_sparse, N; iterations=100)
+function QuantumCircuits.polar_optimise(circuit, psi_GS, H_sparse, N; iterations=100, use_progress=false)
     n_layers = length(circuit)
 
     overlaps = []
     energies = []
 
-    iter = ProgressBar(1:iterations)
-    for iteration in iter
+    iter = 1:iterations
+    iter = use_progress ? ProgressBar(iter) : iter
+    
+    for _ in iter
 
         lower_state = zeros(2^N)
         lower_state[1] = 1
@@ -193,14 +137,13 @@ function polar_optimise(circuit, psi_GS, H_sparse, N; iterations=100)
         end
 
         append!(overlaps, abs(psi_GS[:]' * lower_state[:]))
-        append!(energies, compute_energy(H_sparse, lower_state[:]))
+        append!(energies, measure(H_sparse, lower_state[:]))
 
-        set_multiline_postfix(iter, "energy: $(energies[end])")
 
+        use_progress && set_multiline_postfix(iter, "energy: $(energies[end])")
     end
 
     return circuit, overlaps, energies
-
 end
 
 
@@ -299,15 +242,16 @@ end
     
 end
 
-export polar_optimise_mps
-function polar_optimise_mps(circuit, psi_GS::MPS, H_mpo::MPO, N; iterations=100)
+function QuantumCircuits.polar_optimise_mps(circuit, psi_GS::MPS, H_mpo::MPO, N; iterations=100, use_progress=false)
     n_layers = length(circuit)
 
     overlaps = []
     energies = []
 
-    iter = ProgressBar(1:iterations)
-    for iteration in iter
+    iter = 1:iterations
+    iter = use_progress ? ProgressBar(iter) : iter
+
+    for _ in iter
 
         lower_state = MPS(N)
         upper_state = create_upper_state_mps(circuit, psi_GS, N)
@@ -333,7 +277,7 @@ function polar_optimise_mps(circuit, psi_GS::MPS, H_mpo::MPO, N; iterations=100)
         append!(overlaps, overlap(psi_GS, lower_state))
         append!(energies, real(expectation(lower_state, H_mpo)))
 
-        set_multiline_postfix(iter, "energy: $(energies[end])")
+        use_progress && set_multiline_postfix(iter, "energy: $(energies[end])")
 
     end
 
