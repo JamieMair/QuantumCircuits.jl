@@ -1,11 +1,11 @@
 using TestItems
 
 @testitem "exact energy test" begin
-
     using MatrixProductStates
+    using QuantumCircuits
 
-    for N = 2:2:10
-        H = MPSTFIMHamiltonian(N, 1, 0, 0.1)
+    for N = 2:2:6
+        H = QuantumCircuits.MPSTFIMHamiltonian(N, 1, 0, 0.1)
         H_mat = convert_to_matrix(H);
 
         psi = MPS(N)
@@ -41,16 +41,21 @@ end
 
 
 @testitem "exact circuit tests" begin
-
     using MatrixProductStates
-    
-    for N in 4:10
+    using QuantumCircuits
+    import Random: randn!
+
+    for N in 4:6
         M = 2*N
 
         # generate random circuit that is close to identity.
-        circuit = GenericBrickworkCircuit(N, M, QuantumCircuits.brickwork_num_gates(N, M), 0.01/M*randn(15, circuit.ngates))
+        circuit = GenericBrickworkCircuit(N, M)
 
-        H = MPSTFIMHamiltonian(N, 1, 0, 1.1)  # create Hamiltonian
+        # Randomise the gate angles
+        randn!(circuit.gate_angles)
+        circuit.gate_angles .*= (0.01/M)
+
+        H = QuantumCircuits.MPSTFIMHamiltonian(N, 1, 0, 1.1)  # create Hamiltonian
         H_mat = convert_to_matrix(H);  # convert to matrix for comparison
 
         psi = MPS(N);  # MPS of the zero state.

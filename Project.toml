@@ -9,16 +9,27 @@ LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MatrixProductStates = "d2b9b0d9-0b99-44d1-9ba5-49f6360db25a"
 ProgressBars = "49802e3a-d2f1-5c88-81d8-b72133a6f568"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Requires = "ae029012-a4dd-5104-9daa-d747884805df"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
+[weakdeps]
+KrylovKit = "0b1a1467-8014-51b9-945f-bf0ae24f4b77"
+MatrixProductStates = "d2b9b0d9-0b99-44d1-9ba5-49f6360db25a"
+TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
+
+[extensions]
+MPSExt = ["MatrixProductStates", "KrylovKit", "TensorOperations"]
+
 [compat]
-LinearAlgebra = "1.6"
-julia = "1.6"
+LinearAlgebra = "1.9"
+julia = "1.9"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TestItemRunner = "f8b46487-2199-4994-9208-9a1283c18c0a"
 TestItems = "1c621080-faea-4a02-84b6-bbd5e436b8fe"
+Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 
 [targets]
-test = ["Test", "TestItemRunner", "TestItems"]
+test = ["Test", "TestItemRunner", "TestItems", "Pkg"]

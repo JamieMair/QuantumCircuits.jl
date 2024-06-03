@@ -1,3 +1,5 @@
+using LinearAlgebra
+
 """
 One or two qubit Hamiltonian term represented as a matrix. 
 Single qubit terms are represented as a 2x2 matrix, and two qubit terms are represented as a 4x4 matrix.
@@ -41,7 +43,7 @@ end
 
 Base.:+(ham::MPSHamiltonian, term::MPSTerm) = add(ham, term)  # convenience version of add!
 
-function convert_to_matrix(ham::MPSHamiltonian)
+function QuantumCircuits.convert_to_matrix(ham::MPSHamiltonian)
     H_mat = zeros(2^ham.nbits, 2^ham.nbits)
 
     for term in ham.termList
@@ -58,29 +60,4 @@ function convert_to_matrix(ham::MPSHamiltonian)
         end
     end
     return H_mat
-end
-
-function MPSTFIMHamiltonian(nbits, J, h, g)
-    ham = MPSHamiltonian(nbits)
-    X = [0 1; 1 0]
-    Z = [1 0; 0 -1]
-    ZZ = kron(Z, Z)
-
-    if J != 0
-        for i in 1:nbits-1
-            add!(ham, MPSTerm(i, -J * ZZ))
-        end
-    end
-    if g != 0
-        for i in 1:nbits
-            add!(ham, MPSTerm(i, (-J * g) * X))
-        end
-    end
-    if h != 0
-        for i in 1:nbits
-            add!(ham, MPSTerm(i, (-J * h) * Z))
-        end
-    end
-
-    return ham
 end

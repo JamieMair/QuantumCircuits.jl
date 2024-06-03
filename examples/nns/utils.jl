@@ -653,7 +653,7 @@ function (fn::MemoisedGroundStateFn{T})(n::Int, J, h, g) where {T}
     if haskey(fn.answers, fn_args)
         return fn.answers[fn_args]
     else
-        ans = find_tfim_ground_state(fn_args...)
+        ans = QuantumCircuits.find_tfim_ground_state(fn_args...)
         fn.answers[fn_args] = ans
         return ans
     end

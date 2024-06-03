@@ -1,119 +1,37 @@
-# add package using "add https://github.com/AdamSmith-physics/MatrixProductStates.jl#main"
-using MatrixProductStates
-using LinearAlgebra
+# A stub for the MPS extension
 
-
-#should be added to MatrixProductStates.jl
-function Base.copy(psi::MPS)
-    return MPS(psi.d, psi.N, copy(psi.tensors), psi.centre, psi.chiMax, psi.threshold)
+if !isdefined(Base, :get_extension)
+    using Requires
 end
 
-export measure
-function measure(H::MPSHamiltonian, psi::MPS)
-    n = length(psi)
-    n == H.nbits || throw(ArgumentError("State and Hamiltonian have different numbers of qubits"))
-
-    sort!(H.termList, by=x -> x.index)  # sort terms by index
-
-    # loop over terms in Hamiltonian
-    energy = 0.0
-    #MatrixProductStates.movecentre!(psi, 1)  # not necessary!
-    for term in H.termList
-        if size(term.matrix) == (2, 2)
-            # single site term
-            energy += expectation_1site(psi, term.matrix, term.index)
-        elseif size(term.matrix) == (4, 4)
-            # two site term
-            energy += expectation_2site(psi, term.matrix, term.index)
-        else
-            throw(ArgumentError("Invalid matrix size for term"))
-        end
-    end
-    return real(energy)  # assumers H is Hermitian!
-end
-
-function measure(H::MPSHamiltonian, psi::MPS, circuit::GenericBrickworkCircuit)
-    psi_copy = copy(psi)
-    apply!(psi_copy, circuit)
-    return measure(H, psi_copy)
-end
-
-function measure(H::MPSHamiltonian, circuit::GenericBrickworkCircuit; chiMax::Int=0, threshold::Real=0.0)
-    psi = MPS(H.nbits)
-    psi.chiMax = chiMax
-    psi.threshold = threshold
-    return measure(H, psi, circuit)
-end
-
-
-export apply!
-function apply!(psi::MPS, circuit::GenericBrickworkCircuit; normalised::Bool=false)
-    gate_idx = 1
-    for l in 1:circuit.nlayers
-        layer_gates = []
-        for j in circuit_layer_starts(l, circuit.nbits)
-            angles = view(circuit.gate_angles, :, gate_idx)
-            gate = mat(build_general_unitary_gate(angles))
-            gate = permutedims(gate, (2, 1, 4, 3))
-            gate = reshape(gate, (4, 4))
-            new_term = MPSTerm(j, gate)
-            push!(layer_gates, new_term)
-            gate_idx += 1
-        end
-
-        # Order the gates according to the centre
-        if psi.centre <= psi.N / 2
-            sort!(layer_gates, by=x -> x.index)
-        else
-            sort!(layer_gates, by=x -> -x.index)
-        end
-
-        # Apply all gates in the layer
-        for term in layer_gates
-            apply_2site!(psi, term.matrix, term.index; normalised=normalised)
+@static if !isdefined(Base, :get_extension)
+    function __init__()
+        @static if !isdefined(Base, :get_extension)
+            @require TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2" begin
+                @require KrylovKit = "0b1a1467-8014-51b9-945f-bf0ae24f4b77" begin
+                    @require MatrixProductStates = "d2b9b0d9-0b99-44d1-9ba5-49f6360db25a" begin
+                        include("../ext/MPSExt/MPSExt.jl")
+                    end
+                end
+            end
         end
     end
 end
 
-function gradient(H::MPSHamiltonian, psi::MPS, circuit::GenericBrickworkCircuit, gate_index)
-    l = reconstruct(circuit, gate_index, π / 2)
-    r = reconstruct(circuit, gate_index, -π / 2)
-    (measure(H, psi, l) - measure(H, psi, r)) / 2
-end
-
-function gradient(H::MPSHamiltonian, circuit::GenericBrickworkCircuit, gate_index; chiMax::Int=0, threshold::Real=0.0)
-    psi = MPS(H.nbits)
-    psi.chiMax = chiMax
-    psi.threshold = threshold
-    return gradient(H, psi, circuit, gate_index)
-end
-
-function gradients(H::MPSHamiltonian, psi::MPS, circuit::GenericBrickworkCircuit; calculate_energy::Bool=false)
-    gs = map(1:length(circuit.gate_angles)) do i
-        l = reconstruct(circuit, i, π / 2)
-        r = reconstruct(circuit, i, -π / 2)
-        (measure(H, psi, l) - measure(H, psi, r)) / 2
-    end
-
-    grads = reshape(gs, size(circuit.gate_angles))
-    if calculate_energy
-        E = measure(H, psi, circuit)
-        return E, grads
-    else
-        return grads
+function init_mps_support()
+    @eval Main using MatrixProductStates, TensorOperations, KrylovKit
+    if isdefined(Base, :get_extension)
+        @eval Main Base.retry_load_extensions()
     end
 end
 
-function gradients(H::MPSHamiltonian, circuit::GenericBrickworkCircuit; chiMax::Int=0, threshold::Real=0.0, calculate_energy::Bool=false)
-    psi = MPS(H.nbits)
-    psi.chiMax = chiMax
-    psi.threshold = threshold
-    grads = gradients(H, psi, circuit)
-    if calculate_energy
-        E = measure(H, psi, circuit)
-        return E, grads
-    else
-        return grads
-    end
+
+function install_mps_support()
+    @eval Main import Pkg
+    @eval Main Pkg.add(["TensorOperations", "KrylovKit"])
+    @eval Main Pkg.add(url="https://github.com/AdamSmith-physics/MatrixProductStates.jl", rev="main")
 end
 
+function polar_optimise_mps end
+function polar_optimise end
+function MPSTFIMHamiltonian end
