@@ -20,6 +20,7 @@ QuantumCircuits = "52f5b622-0dbc-4b19-b154-18c0dc35fa48"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 SQLite = "0aa819cd-b072-5ff4-a722-6bc24af294d9"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+TensorBoardLogger = "899adc3e-224a-11e9-021f-63837185c80f"
 TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
 cuDNN = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
 
