@@ -7,6 +7,7 @@ using SparseArrays
 using QuantumCircuits
 include("../matrix_tfim.jl")
 include("../nns/circuit_layer.jl")
+include("../nns/training.jl")
 include("utils.jl")
 
 function run_trial(config::Dict{Symbol,Any}, trial_id)
@@ -38,7 +39,6 @@ function run_trial(config::Dict{Symbol,Any}, trial_id)
     results[:training_start] = now()
 
     losses, info = train!(network, epochs; use_gpu, lr, save_grads_freq, use_progress=false)
-
 
     results[:training_end] = now()
 
