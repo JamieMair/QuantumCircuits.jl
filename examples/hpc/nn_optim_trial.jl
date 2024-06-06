@@ -14,13 +14,9 @@ function run_trial(config::Dict{Symbol,Any}, trial_id)
     results = Dict{Symbol,Any}()
     nbits = config[:nbits]
     nlayers = config[:nlayers]
-    J = config[:J]
-    h = config[:h]
-    g = config[:g]
     lr = config[:learning_rate]
-    gradient_noise = haskey(config, :gradient_noise) ? config[:gradient_noise] : 0
     epochs = config[:epochs]
-    save_grads_freq = config[:save_grads_freq]
+    log_info_freq = config[:log_info_freq]
 
     use_gpu = haskey(config, :use_gpu) ? config[:use_gpu] : CUDA.has_cuda_gpu()
 
@@ -36,9 +32,26 @@ function run_trial(config::Dict{Symbol,Any}, trial_id)
     
     network = create_nn_from_architecture(config)
 
+    logger = if haskey(config, :tensorboard_directory)
+        if !isdir(config[:tensorboard_directory])
+            error("[ERROR] Could not find the log directory at $(abspath(config[:tensorboard_directory]))")
+        end
+        custom_log_directory = joinpath(config[:tensorboard_directory], string(trial_id))
+        results[:logger_directory] = custom_log_directory
+
+        logger = TrainingTBLogger(TBLogger(custom_log_directory, tb_append))
+        logger
+    else
+        NullLogger()
+    end
+
+    # Extract hparams
+    hyperparameters = extract_hyperparameters(network, config)
+    log_hyperparameters!(logger, hyperparameters, ["metrics/energy"])
+
     results[:training_start] = now()
 
-    losses, info = train!(network, epochs; use_gpu, lr, save_grads_freq, use_progress=false)
+    losses, info = train!(network, epochs, logger; use_gpu, lr, log_info_freq, use_progress=false)
 
     results[:training_end] = now()
 
@@ -48,12 +61,16 @@ function run_trial(config::Dict{Symbol,Any}, trial_id)
     results[:energy_trajectory] = losses
     results[:training_info] = info
 
+    # Get the important part of the architecture
     angle_model = Flux.state(network[begin:end-2] |> Flux.cpu)
 
+    # Calculate number of parameters in the neural network
+    parameters, _ = Flux.destructure(angle_model)
+    nparams = length(parameters)
+
+    results[:nparams] = nparams
     results[:model_state] = angle_model
     results[:git_sha] = git_sha()
-
-
 
     return results
 end
