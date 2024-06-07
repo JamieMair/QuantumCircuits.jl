@@ -40,14 +40,16 @@ function unpack_results(dfs...; groupby_colnames=[:c_architecture, :c_learning_r
 
     return [results...]
 end
-function process_results(dfs...; kwargs...)
+function process_results(dfs...; groupby_colnames=[:c_architecture, :c_learning_rate], kwargs...)
     # Sort the dataframes by the number of neurons
     df_to_neuron_count(df) = length(df.c_architecture[1]) == 0 ? 0 : sum(y -> y.neurons, df.c_architecture[1])
-    results = sort(unpack_results(dfs...; kwargs...), by=df_to_neuron_count)
+    results = sort(unpack_results(dfs...; groupby_colnames, kwargs...), by=df_to_neuron_count)
 
     # Combine same architectures
-    architectures = sort(unique([df.c_architecture[1] for df in results]), by=x -> sum(y -> y.neurons, x, init=0))
-    result_groups = [[df for df in results if df.c_architecture[1] == c] for c in architectures]
+    get_info = df -> Tuple(getproperty(df, c_name)[begin] for c_name in groupby_colnames)
+    unique_infos = unique(get_info.(results))
+    # architectures = sort(unique([df.c_architecture[1] for df in results]), by=x -> sum(y -> y.neurons, x, init=0))
+    result_groups = [[df for df in results if get_info(df) == info] for info in unique_infos]
     results = [vcat(rs...) for rs in result_groups]
 
     # Final sort to make sure
@@ -108,7 +110,8 @@ function plot_all_energy_trajectories(dfs...; plot_log=false)
             ) : Dict{Symbol,Any}()
             xlabel = i < length(nbits_set) ? "" : L"t"
             ylabel = j > 1 ? "" : L"\frac{\langle H \rangle - H_0}{H_0}"
-            ax = Axis(f[i, j]; xlabel, ylabel, title=LaTeXString("\$n=$nbits, |\\theta|\\approx 10^{$nparams_log10}\$"), additional_args...)
+            lr = unique(df[current_entries, :c_learning_rate])[1]
+            ax = Axis(f[i, j]; xlabel, ylabel, title=LaTeXString("\$n=$nbits, |\\theta|\\approx 10^{$nparams_log10}, \\eta^*={$lr}\$"), additional_args...)
 
             if haskey(rows_axes, i)
                 push!(rows_axes[i], ax)
@@ -154,7 +157,7 @@ function plot_all_energy_trajectories(dfs...; plot_log=false)
 
                 plot_trajectories!(ax, trajectories; alpha=0.025, label=nothing, color=c)
 
-                lines!(ax, epochs, mean_trajectory; label="$nlayers", color=c, lw=3)
+                lines!(ax, epochs, mean_trajectory; label="$nlayers", color=c, linewidth=3)
                 
                 xlims!(ax, 0, maximum(epochs))
             end
@@ -653,7 +656,7 @@ function (fn::MemoisedGroundStateFn{T})(n::Int, J, h, g) where {T}
     if haskey(fn.answers, fn_args)
         return fn.answers[fn_args]
     else
-        ans = QuantumCircuits.find_tfim_ground_state(fn_args...)
+        ans = find_tfim_ground_state(fn_args...)
         fn.answers[fn_args] = ans
         return ans
     end
