@@ -64,7 +64,6 @@ function build_sparse_tfim_hamiltonian(n, J, h, g)
     return LinearAlgebra.Symmetric(H)
 end
 
-
 function find_tfim_ground_state(nbits, J, h, g)
     H = build_sparse_tfim_hamiltonian(nbits, J, h, g)
     eigen_vals, eigen_vecs, _ = eigsolve(H, 2^nbits, 1, :SR)
